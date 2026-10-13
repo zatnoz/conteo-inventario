@@ -19,16 +19,27 @@ input,select{font-size:20px;padding:12px;border:1px solid #9ca3af;border-radius:
 small{color:#555}.tok{display:inline-block;margin:4px;padding:10px 14px;background:#dbeafe;border-radius:20px}
 #labels{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}.lab{border:1px dashed #999;padding:2mm;text-align:center;font-size:11px;break-inside:avoid;background:#fff}.lab b{font-size:14px;display:block}
 @media print{nav,.noprint{display:none!important}section{display:none!important}#sEtiq{display:block!important;padding:0}body{background:#fff}}
+#camWrap{position:relative;background:#000;border-radius:10px;overflow:hidden}#vid{width:100%;display:block}
+#guide{position:absolute;left:10%;width:80%;top:37.5%;height:25%;border:3px solid #22c55e;box-shadow:0 0 0 999px #0007;border-radius:6px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin-top:8px}.stats div{background:#f3f4f6;border-radius:8px;padding:6px}.stats b{display:block;font-size:24px}
+.pos{color:#ea580c}.neg{color:#dc2626}.zero{color:#16a34a}.tok.exact{background:#16a34a;color:#fff;font-weight:bold}
+#dFil button{font-size:14px;padding:8px 4px;min-height:44px;background:#e5e7eb;color:#111}#dFil button.on{background:#2563eb;color:#fff}
+#dTab{width:100%;border-collapse:collapse;font-size:15px}#dTab td,#dTab th{padding:8px 4px;border-bottom:1px solid #eee;text-align:right}#dTab td:first-child,#dTab th:first-child{text-align:left}
 </style></head><body>
-<nav><button data-s="sConteo" class="on">Contar</button><button data-s="sLista">Lista</button><button data-s="sCat">Catálogo</button><button data-s="sEtiq">Etiquetas QR</button></nav>
+<nav><button data-s="sConteo" class="on">Contar</button><button data-s="sLista">Lista</button><button data-s="sDif">Diferencias</button><button data-s="sCat">Catálogo</button><button data-s="sEtiq">Etiquetas QR</button></nav>
 
 <section id="sConteo" class="on">
  <div class="card grid3"><button id="bScan">📷 Escanear QR</button><button id="bOcr">🔤 Leer texto</button><button class="sec" id="bMan">⌨️ Manual</button></div>
  <div class="card" id="scanBox" style="display:none"><div id="reader"></div><button class="red" id="bStop" style="width:100%;margin-top:8px">Detener cámara</button></div>
- <div class="card" id="ocrBox" style="display:none"><label class="btn" style="display:block;text-align:center">Tomar foto de la etiqueta<input type="file" accept="image/*" capture="environment" id="ocrFile" hidden></label><div id="ocrMsg"></div><div id="ocrTok"></div></div>
+ <div class="card" id="ocrBox" style="display:none">
+  <div id="camWrap"><video id="vid" playsinline muted autoplay></video><div id="guide"></div></div>
+  <small>Encuadre el código dentro del rectángulo</small>
+  <div class="row" style="margin-top:8px"><button class="grn" id="bCap">📸 Capturar</button><button class="sec" id="bAuto">Auto: ON</button><button class="red" id="bOcrStop">Cerrar</button></div>
+  <label class="btn sec" style="display:block;text-align:center;margin-top:8px">o subir/tomar foto<input type="file" accept="image/*" capture="environment" id="ocrFile" hidden></label>
+  <div id="ocrMsg"></div><div id="ocrTok"></div></div>
  <div class="card"><input id="busca" placeholder="Código o descripción…" autocomplete="off"><div class="sug" id="sug"></div></div>
  <div class="card" id="prodBox" style="display:none">
-  <div style="font-size:24px;font-weight:bold" id="pCod"></div><div id="pDesc"></div><small id="pInfo"></small>
+  <div style="font-size:24px;font-weight:bold" id="pCod"></div><div id="pDesc"></div><small id="pInfo"></small><div class="stats"><div><small>Sistema</small><b id="stSis"></b></div><div><small>Llevas</small><b id="stLle"></b></div><div><small>Dif. actual</small><b id="stDif"></b></div><div><small>Dif. al agregar</small><b id="stNew"></b></div></div>
   <div class="qty" style="margin:12px 0"><button class="sec" id="qMenos">−</button><input id="qty" type="number" inputmode="numeric" value="1"><button class="sec" id="qMas">+</button></div>
   <button class="grn" id="bAdd" style="width:100%">Agregar al conteo</button>
  </div>
@@ -37,6 +48,9 @@ small{color:#555}.tok{display:inline-block;margin:4px;padding:10px 14px;backgrou
 
 <section id="sLista"><div class="card"><div class="row"><button class="grn" id="bExp">⬇️ Exportar .xlsx</button><button class="red" id="bClr">Borrar conteo</button></div><small id="lInfo"></small></div><div class="card" id="lista"></div></section>
 
+<section id="sDif"><div class="card"><div class="stats" id="dTot"></div>
+ <input id="dBus" placeholder="Buscar código o descripción" style="margin:8px 0"><div class="row" id="dFil"><button data-f="todos" class="on">Todos</button><button data-f="dif">Con dif.</button><button data-f="sin">Sin contar</button><button data-f="con">Contados</button></div></div>
+ <div class="card" style="padding:4px"><table id="dTab"></table></div></section>
 <section id="sCat"><div class="card"><b>Importar catálogo (Excel/CSV)</b><br><small>Ej. exportación de Microsip</small><input type="file" id="catFile" accept=".xlsx,.xls,.csv"></div>
  <div class="card" id="mapBox" style="display:none"><b>Asignar columnas</b><br>Código<select id="mCod"></select>Descripción<select id="mDesc"></select>Existencia en sistema<select id="mExi"></select><button id="bMap" style="width:100%;margin-top:10px">Importar</button></div>
  <div class="card" id="catInfo"></div></section>
@@ -48,9 +62,9 @@ const LS=k=>JSON.parse(localStorage.getItem(k)||'null'),SV=(k,v)=>localStorage.s
 let cat=LS('inv_cat')||[],cnt=LS('inv_cnt')||{},cur=null,raw=null,scanner=null;
 const $=id=>document.getElementById(id),norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const findCode=c=>cat.find(p=>norm(p.c)===norm(c));
+const findCode=c=>cat.find(p=>norm(p.c)===norm(c))||cat.find(p=>key(p.c)===key(c));
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.s));
-function show(s){document.querySelectorAll('section,nav button').forEach(e=>e.classList.remove('on'));$(s).classList.add('on');document.querySelector(`nav [data-s=${s}]`).classList.add('on');if(s=='sLista')renderList();if(s=='sCat')catInfo()}
+function show(s){document.querySelectorAll('section,nav button').forEach(e=>e.classList.remove('on'));$(s).classList.add('on');document.querySelector(`nav [data-s=${s}]`).classList.add('on');if(s=='sLista')renderList();if(s=='sCat')catInfo();if(s=='sDif')renderDif();if(s!='sConteo')ocrClose()}
 function toast(t){$('toast').textContent=t;$('toast').style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').style.display='none',2500)}
 // --- Catálogo
 function parseRows(rows){raw=rows.filter(r=>r.some(v=>v!==''&&v!=null));const h=raw[0].map(String);
@@ -61,30 +75,73 @@ function applyMap(ic,id,ie){cat=raw.slice(1).map(r=>({c:String(r[ic]).trim(),d:S
 $('bMap').onclick=()=>{toast(applyMap(+$('mCod').value,+$('mDesc').value,+$('mExi').value)+' productos importados');$('mapBox').style.display='none'};
 function catInfo(){$('catInfo').innerHTML=`<b>${cat.length}</b> productos en catálogo`+cat.slice(0,5).map(p=>`<div><small>${esc(p.c)} — ${esc(p.d)} (${p.e})</small></div>`).join('')}
 // --- Búsqueda
-function search(q){q=norm(q);if(!q)return[];const ws=q.split(/\s+/);return cat.filter(p=>{const s=norm(p.c+' '+p.d);return ws.every(w=>s.includes(w))}).sort((a,b)=>(norm(b.c).startsWith(q))-(norm(a.c).startsWith(q))).slice(0,15)}
+function search(q){q=norm(q);if(!q)return[];const ws=q.split(/\s+/);return cat.filter(p=>{const s=norm(p.c+' '+p.d);return ws.every(w=>s.includes(w))||key(p.c).includes(key(q))}).sort((a,b)=>(norm(b.c).startsWith(q))-(norm(a.c).startsWith(q))).slice(0,15)}
 $('busca').oninput=()=>{const q=$('busca').value,r=search(q);let h=r.map(p=>`<div data-c="${esc(p.c)}"><b>${esc(p.c)}</b> ${esc(p.d)}</div>`).join('');if(q.trim()&&!findCode(q))h+=`<div data-new="1">➕ Usar "<b>${esc(q.trim())}</b>" (no está en catálogo)</div>`;$('sug').innerHTML=h};
 $('sug').onclick=e=>{const d=e.target.closest('div');if(!d)return;select(d.dataset.new?$('busca').value.trim():d.dataset.c)};
 $('bMan').onclick=()=>{$('busca').focus()};
 function select(code){code=String(code).trim();if(!code)return;const p=findCode(code);cur=p?{...p}:{c:code,d:'(No está en catálogo)',e:null,nuevo:1};
- $('pCod').textContent=cur.c;$('pDesc').textContent=cur.d;$('pInfo').textContent=(cnt[norm(cur.c)]?`Ya contado: ${cnt[norm(cur.c)].q}`:'');$('qty').value=1;$('prodBox').style.display='block';$('sug').innerHTML='';$('busca').value='';$('ocrTok').innerHTML='';$('prodBox').scrollIntoView({behavior:'smooth'})}
-$('qMas').onclick=()=>$('qty').value=(+$('qty').value||0)+1;$('qMenos').onclick=()=>$('qty').value=Math.max(0,(+$('qty').value||0)-1);
+ $('pCod').textContent=cur.c;$('pDesc').textContent=cur.d;$('pInfo').textContent=(cnt[norm(cur.c)]?`Ya contado: ${cnt[norm(cur.c)].q}`:'');$('qty').value=1;upStats();$('prodBox').style.display='block';$('sug').innerHTML='';$('busca').value='';$('ocrTok').innerHTML='';$('prodBox').scrollIntoView({behavior:'smooth'})}
+$('qMas').onclick=()=>{$('qty').value=(+$('qty').value||0)+1;upStats()};$('qMenos').onclick=()=>{$('qty').value=Math.max(0,(+$('qty').value||0)-1);upStats()};$('qty').oninput=upStats;
+const cls=d=>d==null?'':d<0?'neg':d>0?'pos':'zero',sg=d=>d==null?'—':(d>0?'+':'')+d;
+function upStats(){if(!cur)return;const l=cnt[norm(cur.c)]?cnt[norm(cur.c)].q:0,q=+$('qty').value||0,e=cur.e;const set=(id,v,d)=>{$(id).textContent=v;$(id).className=d===undefined?'':cls(d)};
+ set('stSis',e??'—');set('stLle',l);const da=e==null?null:l-e,dn=e==null?null:l+q-e;set('stDif',sg(da),da);set('stNew',sg(dn),dn)}
 function addCount(code,q){const k=norm(code),p=findCode(code);if(!cnt[k])cnt[k]={c:p?p.c:String(code).trim(),q:0,t:0};cnt[k].q+=q;cnt[k].t=Date.now();SV('inv_cnt',cnt)}
 $('bAdd').onclick=()=>{const q=+$('qty').value;if(!cur||isNaN(q))return;addCount(cur.c,q);toast(`✔ ${cur.c}: +${q} (total ${cnt[norm(cur.c)].q})`);$('prodBox').style.display='none';cur=null};
 // --- Escáner
-$('bScan').onclick=async()=>{$('scanBox').style.display='block';scanner=scanner||new Html5Qrcode('reader');try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:250},t=>{stopScan();select(t)})}catch(e){toast('Cámara: '+e)}};
+$('bScan').onclick=async()=>{ocrClose();$('scanBox').style.display='block';scanner=scanner||new Html5Qrcode('reader');try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:250},t=>{stopScan();select(t)})}catch(e){toast('Cámara: '+e)}};
 async function stopScan(){try{await scanner.stop()}catch(e){}$('scanBox').style.display='none'}$('bStop').onclick=stopScan;
 // --- OCR
-$('bOcr').onclick=()=>{$('ocrBox').style.display='block';$('ocrFile').click()};
 function lev(a,b){const m=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=m[0];m[0]=i;for(let j=1;j<=b.length;j++){const t=m[j];m[j]=Math.min(m[j]+1,m[j-1]+1,p+(a[i-1]==b[j-1]?0:1));p=t}}return m[b.length]}
-function tokens(text){return[...new Set(norm(text).split(/[^A-Z0-9\-]+/).map(t=>t.replace(/^-+|-+$/g,'')).filter(t=>t.length>=3&&/\d/.test(t)))]}
-function ocrMatches(text){const toks=tokens(text),sk=s=>s.replace(/-/g,'').replace(/O/g,'0').replace(/[IL]/g,'1').replace(/S/g,'5').replace(/B/g,'8');const res=[];
- cat.forEach(p=>{const c=sk(norm(p.c));let best=99;toks.forEach(t=>{const d=lev(sk(t),c);if(d<best)best=d});if(best<=Math.max(1,Math.floor(c.length/4)))res.push({p,d:best})});
+const key=s=>norm(s).replace(/[\s\-\/\.]+/g,'');
+const fuzzy=s=>s.replace(/O/g,'0').replace(/[IL|]/g,'1').replace(/S/g,'5').replace(/B/g,'8').replace(/Z/g,'2').replace(/G/g,'6');
+function tokens(text){const out=new Set();norm(text).split(/\n/).forEach(line=>{const parts=line.split(/[^A-Z0-9\-\/\.]+/).map(t=>t.replace(/^[\-\/\.]+|[\-\/\.]+$/g,'')).filter(Boolean);
+ const add=t=>{const k=key(t);if(k.length>=3&&k.length<=20&&/\d/.test(k))out.add(k)};
+ parts.forEach((t,i)=>{add(t);if(i+1<parts.length)add(t+parts[i+1])})});return[...out]}
+function ocrMatches(text){const toks=tokens(text),res=[];
+ cat.forEach(p=>{const c=key(p.c),fc=fuzzy(c);let best=99;toks.forEach(t=>{const d=t===c?0:Math.min(lev(fuzzy(t),fc),99)+(fuzzy(t)===fc?0.5:0);if(d<best)best=d});if(best<=Math.max(1,Math.floor(c.length/4)))res.push({p,d:best})});
  return{toks,res:res.sort((a,b)=>a.d-b.d).slice(0,8)}}
-$('ocrFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('ocrMsg').textContent='Leyendo texto… (puede tardar)';$('ocrTok').innerHTML='';
- try{const{data}=await Tesseract.recognize(f,'eng',{logger:m=>m.status=='recognizing text'&&($('ocrMsg').textContent='Leyendo… '+Math.round(m.progress*100)+'%')});
- const{toks,res}=ocrMatches(data.text);$('ocrMsg').innerHTML=res.length?'<b>Coincidencias en catálogo:</b> toque para confirmar':'Sin coincidencias. Texto detectado:';
- $('ocrTok').innerHTML=res.map(r=>`<span class=tok data-c="${esc(r.p.c)}">${r.d?'≈ ':'✔ '}${esc(r.p.c)} <small>${esc(r.p.d)}</small></span>`).join('')+'<br><small>Tokens leídos:</small><br>'+toks.map(t=>`<span class=tok style="background:#eee" data-c="${esc(t)}">${esc(t)}</span>`).join('')}catch(err){$('ocrMsg').textContent='Error OCR: '+err}e.target.value=''};
-$('ocrTok').onclick=e=>{const s=e.target.closest('.tok');if(s)select(s.dataset.c)};
+// preprocesado: recorte opcional, gris, contraste, binarizado Otsu, escala 2x, rotación
+function prep(src,sw,sh,crop,rot){const [cx,cy,cw,ch]=crop||[0,0,sw,sh];let sc=2;if(cw*sc>2400)sc=2400/cw;
+ const c=document.createElement('canvas'),W=Math.round(cw*sc),H=Math.round(ch*sc);c.width=W;c.height=H;const g=c.getContext('2d');
+ if(rot){g.translate(W,H);g.rotate(Math.PI)}g.imageSmoothingQuality='high';g.drawImage(src,cx,cy,cw,ch,0,0,W,H);
+ const im=g.getImageData(0,0,W,H),d=im.data,n=W*H,gr=new Uint8Array(n);let mn=255,mx=0;
+ for(let i=0;i<n;i++){const v=(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114)|0;gr[i]=v;if(v<mn)mn=v;if(v>mx)mx=v}
+ const hist=new Array(256).fill(0),r=Math.max(1,mx-mn);for(let i=0;i<n;i++){gr[i]=((gr[i]-mn)*255/r)|0;hist[gr[i]]++}
+ let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sB=0,wB=0,th=128,bv=0;for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*hist[t];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)**2;if(v>bv){bv=v;th=t}}
+ let dark=0;for(let i=0;i<n;i++)if(gr[i]<=th)dark++;const inv=dark>n/2; // texto claro sobre fondo oscuro
+ for(let i=0;i<n;i++){let v=gr[i]>th?255:0;if(inv)v=255-v;d[i*4]=d[i*4+1]=d[i*4+2]=v}g.putImageData(im,0,0);return c}
+let worker=null;async function getWorker(){if(!worker){worker=await Tesseract.createWorker('eng');await worker.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/.',preserve_interword_spaces:'1'})}return worker}
+async function rec(c,psm){const w=await getWorker();await w.setParameters({tessedit_pageseg_mode:String(psm)});const{data}=await w.recognize(c);return data.text}
+// full=true: psm 7 -> 6 -> 11, y rotado 180°
+async function ocrPipeline(src,sw,sh,crop,full){let all='';for(const rot of full?[0,1]:[0]){const c=prep(src,sw,sh,crop,rot);
+ for(const psm of full?[7,6,11]:[7]){const t=await rec(c,psm);all+='\n'+t;const m=ocrMatches(all);if(m.res.some(r=>r.d===0)||(!full&&m.toks.length))return{text:all,...m}}
+ if(tokens(all).length)break}return{text:all,...ocrMatches(all)}}
+function showOcr(r,auto){if(auto&&!r.toks.length)return;$('ocrMsg').innerHTML=r.res.length?'<b>Coincidencias:</b> toque para confirmar':(r.toks.length?'Sin coincidencias en catálogo. Códigos leídos:':'No se detectó ningún código. Acerque la cámara / mejore la luz.');
+ $('ocrTok').innerHTML=r.res.map(x=>`<span class="tok ${x.d===0?'exact':''}" data-c="${esc(x.p.c)}">${x.d===0?'✔ ':'≈ '}${esc(x.p.c)} <small>${esc(x.p.d)}</small></span>`).join('')+(r.toks.length?'<br><small>Leído:</small><br>'+r.toks.map(t=>`<span class=tok style="background:#eee" data-c="${esc(t)}">${esc(t)}</span>`).join(''):'')}
+let stream=null,autoOn=true,autoT=null,busy=false;
+function guideCrop(){const v=$('vid'),W=v.videoWidth,H=v.videoHeight;return[W*.1,H*.375,W*.8,H*.25].map(Math.round)}
+async function ocrOpen(){$('ocrBox').style.display='block';$('ocrMsg').textContent='';$('ocrTok').innerHTML='';getWorker().catch(()=>{});
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});$('vid').srcObject=stream;$('camWrap').style.display='block';
+  try{const tr=stream.getVideoTracks()[0],cp=tr.getCapabilities?tr.getCapabilities():{};if(cp.focusMode&&cp.focusMode.includes('continuous'))tr.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+  startAuto()}catch(e){$('camWrap').style.display='none';$('ocrMsg').textContent='No se pudo abrir la cámara en vivo; use "subir/tomar foto".'}}
+function ocrClose(){clearInterval(autoT);autoT=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$('ocrBox').style.display='none'}
+async function grab(full){const v=$('vid');if(busy||!v.videoWidth)return;busy=true;try{const r=await ocrPipeline(v,v.videoWidth,v.videoHeight,guideCrop(),full);showOcr(r,!full)}catch(e){$('ocrMsg').textContent='Error OCR: '+e}busy=false}
+function startAuto(){clearInterval(autoT);if(autoOn)autoT=setInterval(()=>grab(false),1500)}
+$('bOcr').onclick=()=>{stopScan();ocrOpen()};$('bOcrStop').onclick=ocrClose;
+$('bCap').onclick=async()=>{$('ocrMsg').textContent='Leyendo…';while(busy)await new Promise(r=>setTimeout(r,100));grab(true)};
+$('bAuto').onclick=()=>{autoOn=!autoOn;$('bAuto').textContent='Auto: '+(autoOn?'ON':'OFF');startAuto()};
+async function ocrImageFile(f){const img=await createImageBitmap(f);return ocrPipeline(img,img.width,img.height,null,true)}
+$('ocrFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('ocrMsg').textContent='Leyendo texto…';busy=true;try{showOcr(await ocrImageFile(f))}catch(err){$('ocrMsg').textContent='Error OCR: '+err}busy=false;e.target.value=''};
+$('ocrTok').onclick=e=>{const s=e.target.closest('.tok');if(s){select(s.dataset.c)}};
+// --- Diferencias
+let dF='todos';$('dFil').onclick=e=>{const b=e.target.closest('button');if(!b)return;dF=b.dataset.f;[...$('dFil').children].forEach(x=>x.classList.toggle('on',x==b));renderDif()};$('dBus').oninput=()=>renderDif();
+function difRows(){const rows=cat.map(p=>{const k=norm(p.c),f=cnt[k]?cnt[k].q:null;return{c:p.c,d:p.d,s:p.e,f,dif:(f??0)-p.e}});
+ Object.values(cnt).filter(x=>!findCode(x.c)).forEach(x=>rows.push({c:x.c,d:'NO EN CATÁLOGO',s:null,f:x.q,dif:x.q}));return rows}
+function renderDif(){const all=difRows(),q=norm($('dBus').value),ws=q.split(/\s+/).filter(Boolean);
+ const cont=all.filter(r=>r.f!=null);$('dTot').innerHTML=`<div><small>Contados</small><b>${cont.filter(r=>r.s!=null).length}/${cat.length}</b></div><div><small>Piezas</small><b>${cont.reduce((a,r)=>a+r.f,0)}</b></div><div><small>Con dif.</small><b class=neg>${all.filter(r=>r.dif).length}</b></div><div><small>Sin contar</small><b>${all.filter(r=>r.f==null).length}</b></div>`;
+ const rs=all.filter(r=>dF=='todos'||(dF=='dif'&&r.dif)||(dF=='sin'&&r.f==null)||(dF=='con'&&r.f!=null)).filter(r=>{const t=norm(r.c+' '+r.d);return ws.every(w=>t.includes(w))});
+ $('dTab').innerHTML='<tr><th>Producto</th><th>Sistema</th><th>Físico</th><th>Dif.</th></tr>'+rs.map(r=>`<tr data-c="${esc(r.c)}"><td><b>${esc(r.c)}</b><br><small>${esc(r.d)}</small></td><td>${r.s??'—'}</td><td>${r.f??'<small>sin contar</small>'}</td><td class=${cls(r.dif)}><b>${sg(r.dif)}</b></td></tr>`).join('')}
+$('dTab').onclick=e=>{const t=e.target.closest('tr[data-c]');if(t){show('sConteo');select(t.dataset.c)}};
 // --- Lista
 function renderList(){const it=Object.values(cnt).sort((a,b)=>b.t-a.t);$('lInfo').textContent=`${it.length} códigos, ${it.reduce((s,x)=>s+x.q,0)} piezas`;
  $('lista').innerHTML=it.map(x=>{const p=findCode(x.c);return`<div class=item><div class=d><b>${esc(x.c)}</b><br><small>${esc(p?p.d:'NO EN CATÁLOGO')}</small></div><input type=number inputmode=numeric value=${x.q} data-k="${esc(norm(x.c))}"><button class="red" data-del="${esc(norm(x.c))}">✕</button></div>`}).join('')||'Sin conteos aún'}
