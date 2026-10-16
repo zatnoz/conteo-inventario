@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Conteo de Inventario</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -12,175 +13,70 @@
 nav{display:flex;position:sticky;top:0;background:#1e3a8a;z-index:5}nav button{flex:1;background:none;color:#fff;border:0;padding:14px 4px;font-size:15px}nav button.on{background:#2563eb;font-weight:bold}
 section{display:none;padding:12px;max-width:700px;margin:auto}section.on{display:block}
 .card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px #0002}
-button,.btn{font-size:18px;padding:14px;border-radius:10px;border:0;background:#2563eb;color:#fff;min-height:52px;cursor:pointer}
+button{font-size:18px;padding:14px;border-radius:10px;border:0;background:#2563eb;color:#fff;min-height:52px;cursor:pointer}
 button.sec{background:#e5e7eb;color:#111}button.red{background:#dc2626}button.grn{background:#16a34a}
-input,select{font-size:20px;padding:12px;border:1px solid #9ca3af;border-radius:10px;width:100%}
-.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
-.item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #eee}.item .d{flex:1}
-small{color:#555}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin-top:8px}.stats div{background:#f3f4f6;border-radius:8px;padding:6px}.stats b{display:block;font-size:24px}
-.pos{color:#ea580c}.neg{color:#dc2626}.zero{color:#16a34a}
-#roomBar{background:#1e3a8a;color:#fff;padding:10px;text-align:center;font-size:16px}
+input{font-size:20px;padding:12px;border:1px solid #9ca3af;border-radius:10px;width:100%}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.qty{display:flex;gap:8px;align-items:center}.qty button{width:72px;height:72px;font-size:36px}
+.qty input{text-align:center;font-size:36px;height:72px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}.stats b{display:block;font-size:24px}
+#roomBar{background:#1e3a8a;color:#fff;padding:8px;text-align:center}
 </style>
 </head>
 <body>
-<div id="roomBar">Código de sala: <b id="roomName">cargando...</b> <button class="sec" onclick="changeRoom()" style="margin-left:8px;padding:6px 12px;font-size:14px">Cambiar</button></div>
+<div id="roomBar">Sala: <b id="roomName"></b> <button class="sec" onclick="changeRoom()" style="padding:4px 10px;font-size:14px">Cambiar</button></div>
 <nav>
 <button data-s="sConteo" class="on">Contar</button>
 <button data-s="sLista">Lista</button>
 <button data-s="sDif">Diferencias</button>
 <button data-s="sCat">Catálogo</button>
 </nav>
-
 <section id="sConteo" class="on">
- <div class="card"><input id="busca" placeholder="Código o descripción…" autocomplete="off"></div>
- <div class="card" id="prodBox" style="display:none">
-  <div style="font-size:24px;font-weight:bold" id="pCod"></div>
-  <div id="pDesc"></div>
-  <div class="stats"><div><small>Sistema</small><b id="stSis"></b></div><div><small>Llevas</small><b id="stLle"></b></div><div><small>Dif.</small><b id="stDif"></b></div></div>
-  <div class="row" style="margin:12px 0"><button class="sec" id="qMenos">−</button><input id="qty" type="number" value="1" style="text-align:center;font-size:28px"><button class="sec" id="qMas">+</button></div>
-  <button class="grn" id="bAdd" style="width:100%">Agregar al conteo</button>
- </div>
+<div class="card" style="display:flex;gap:8px">
+<button id="bScan">📷 QR</button>
+<button id="bOcr">🔤 Texto</button>
+<button class="sec" id="bMan">Manual</button>
+</div>
+<div class="card" id="scanBox" style="display:none"><div id="reader"></div><button class="red" id="bStop">Detener</button></div>
+<div class="card"><input id="busca" placeholder="Código o descripción…"></div>
+<div class="card" id="prodBox" style="display:none">
+<div style="font-size:24px;font-weight:bold" id="pCod"></div>
+<div id="pDesc"></div>
+<div class="stats"><div>Sistema<b id="stSis"></b></div><div>Llevas<b id="stLle"></b></div><div>Dif<b id="stDif"></b></div></div>
+<div class="qty"><button class="sec" id="qMenos">−</button><input id="qty" type="number" value="1"><button class="sec" id="qMas">+</button></div>
+<button class="grn" id="bAdd" style="width:100%;margin-top:8px">Agregar</button>
+</div>
 </section>
-
-<section id="sLista">
- <div class="card"><div class="row"><button class="grn" id="bExp">Exportar .xlsx</button><button class="red" id="bClr">Borrar conteo</button></div></div>
- <div class="card" id="lista"></div>
-</section>
-
-<section id="sDif">
- <div class="card"><div class="stats" id="dTot"></div></div>
- <div class="card" id="dTab"></div>
-</section>
-
-<section id="sCat">
- <div class="card"><b>Importar catálogo (Excel/CSV)</b><br><input type="file" id="catFile" accept=".xlsx,.xls,.csv"></div>
- <div class="card" id="catInfo"></div>
-</section>
-
+<section id="sLista"><div class="card"><button class="grn" id="bExp">Exportar</button> <button class="red" id="bClr">Borrar</button></div><div class="card" id="lista"></div></section>
+<section id="sDif"><div class="card" id="dTab"></div></section>
+<section id="sCat"><div class="card"><input type="file" id="catFile" accept=".xlsx,.xls,.csv"><div id="catInfo"></div></div></section>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyA8BhkDLgJdE7xk3Y5AwcESd1pAaPGvU2M",
-  authDomain: "conteo-de-inventarios.firebaseapp.com",
-  databaseURL: "https://conteo-de-inventarios-default-rtdb.firebaseio.com",
-  projectId: "conteo-de-inventarios",
-  storageBucket: "conteo-de-inventarios.firebasestorage.app",
-  messagingSenderId: "628986037167",
-  appId: "1:628986037167:web:d92690f68a0ae3fde4a55a",
-  measurementId: "G-TN61H65GJ0"
-};
+const firebaseConfig={apiKey:"AIzaSyA8BhkDLgJdE7xk3Y5AwcESd1pAaPGvU2M",authDomain:"conteo-de-inventarios.firebaseapp.com",databaseURL:"https://conteo-de-inventarios-default-rtdb.firebaseio.com",projectId:"conteo-de-inventarios",storageBucket:"conteo-de-inventarios.firebasestorage.app",messagingSenderId:"628986037167",appId:"1:628986037167:web:d92690f68a0ae3fde4a55a"};
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-let room = localStorage.getItem('room') || prompt('Código de sala (ej. REFAC-OCT):', 'REFAC-OCT') || 'demo';
-room = room.toUpperCase().replace(/[^A-Z0-9\-]/g,'');
-localStorage.setItem('room', room);
-document.getElementById('roomName').textContent = room;
-
-const roomRef = db.ref('rooms/' + room);
-let cat = [], cnt = {};
-
-roomRef.on('value', snap => {
-  const data = snap.val() || {};
-  cat = data.cat || [];
-  cnt = data.cnt || {};
-  renderAll();
-});
-
-function save(){
-  roomRef.set({cat, cnt});
-}
-
-function changeRoom(){
-  const n = prompt('Nuevo código de sala:', room);
-  if(n){ localStorage.setItem('room', n.toUpperCase().replace(/[^A-Z0-9\-]/g,'')); location.reload(); }
-}
-
-const $ = id => document.getElementById(id);
-const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
-const findCode = c => cat.find(p => norm(p.c) === norm(c));
-
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.s));
-function show(s){
-  document.querySelectorAll('section,nav button').forEach(e => e.classList.remove('on'));
-  $(s).classList.add('on');
-  document.querySelector(`nav [data-s=${s}]`).classList.add('on');
-  renderAll();
-}
-
-$('busca').oninput = () => {
-  const q = norm($('busca').value);
-  const p = findCode(q) || (q ? {c:q, d:'(nuevo)', e:0} : null);
-  if(p){
-    $('pCod').textContent = p.c;
-    $('pDesc').textContent = p.d;
-    $('prodBox').style.display = 'block';
-    updateStats(p);
-  } else $('prodBox').style.display = 'none';
-};
-
-function updateStats(p){
-  const l = cnt[norm(p.c)] ? cnt[norm(p.c)].q : 0;
-  $('stSis').textContent = p.e ?? '—';
-  $('stLle').textContent = l;
-  const d = (p.e != null) ? l - p.e : null;
-  $('stDif').textContent = d == null ? '—' : (d>0?'+':'')+d;
-  $('stDif').className = d<0?'neg':d>0?'pos':'zero';
-}
-
-$('qMas').onclick = () => $('qty').value = (+$('qty').value||0)+1;
-$('qMenos').onclick = () => $('qty').value = Math.max(0,(+$('qty').value||0)-1);
-$('bAdd').onclick = () => {
-  const code = $('pCod').textContent;
-  const q = +$('qty').value || 0;
-  if(!code) return;
-  const k = norm(code);
-  if(!cnt[k]) cnt[k] = {c:code, q:0};
-  cnt[k].q += q;
-  save();
-  $('prodBox').style.display = 'none';
-  $('busca').value = '';
-};
-
-$('catFile').onchange = e => {
-  const f = e.target.files[0];
-  if(!f) return;
-  const r = new FileReader();
-  r.onload = ev => {
-    const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
-    cat = rows.slice(1).map(r => ({c:String(r[0]).trim(), d:String(r[1]||'').trim(), e:Number(r[2])||0})).filter(p=>p.c);
-    save();
-    alert(cat.length + ' productos importados');
-  };
-  r.readAsArrayBuffer(f);
-};
-
-function renderAll(){
-  $('catInfo').innerHTML = `<b>${cat.length}</b> productos`;
-  const it = Object.values(cnt);
-  $('lista').innerHTML = it.map(x => `<div class=item><div class=d><b>${x.c}</b></div><span>${x.q}</span></div>`).join('') || 'Sin conteos';
-  let html = '';
-  cat.forEach(p => {
-    const f = cnt[norm(p.c)] ? cnt[norm(p.c)].q : 0;
-    const d = f - p.e;
-    html += `<div><b>${p.c}</b> sistema:${p.e} físico:${f} dif:${d}</div>`;
-  });
-  $('dTab').innerHTML = html || 'Sin datos';
-}
-
-$('bClr').onclick = () => { if(confirm('¿Borrar todo el conteo de esta sala?')){ cnt = {}; save(); } };
-$('bExp').onclick = () => {
-  const a = [['Código','Descripción','Sistema','Físico','Dif'], ...cat.map(p => {
-    const q = cnt[norm(p.c)] ? cnt[norm(p.c)].q : 0;
-    return [p.c, p.d, p.e, q, q-p.e];
-  })];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(a), 'Conteo');
-  XLSX.writeFile(wb, 'conteo_'+room+'.xlsx');
-};
-
-renderAll();
+const db=firebase.database();
+let room=localStorage.getItem('room')||prompt('Código de sala:','REFAC')||'DEMO';
+room=room.toUpperCase().replace(/[^A-Z0-9\-]/g,'');
+localStorage.setItem('room',room);
+document.getElementById('roomName').textContent=room;
+const roomRef=db.ref('rooms/'+room);
+let cat=[],cnt={},scanner=null;
+roomRef.on('value',s=>{const d=s.val()||{};cat=d.cat||[];cnt=d.cnt||{};render()});
+function save(){roomRef.set({cat,cnt})}
+function changeRoom(){const n=prompt('Nueva sala:',room);if(n){localStorage.setItem('room',n.toUpperCase().replace(/[^A-Z0-9\-]/g,''));location.reload()}}
+const $=id=>document.getElementById(id);
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('section,nav button').forEach(e=>e.classList.remove('on'));$(b.dataset.s).classList.add('on');b.classList.add('on')});
+$('busca').oninput=()=>{const q=norm($('busca').value);const p=cat.find(x=>norm(x.c)===q)||(q?{c:q,d:'(nuevo)',e:0}:null);if(p){$('pCod').textContent=p.c;$('pDesc').textContent=p.d;$('prodBox').style.display='block';upd(p)}else $('prodBox').style.display='none'};
+function upd(p){const l=cnt[norm(p.c)]?cnt[norm(p.c)].q:0;$('stSis').textContent=p.e??'—';$('stLle').textContent=l;const d=p.e!=null?l-p.e:null;$('stDif').textContent=d==null?'—':(d>0?'+':'')+d}
+$('qMas').onclick=()=>$('qty').value=(+$('qty').value||0)+1;
+$('qMenos').onclick=()=>$('qty').value=Math.max(0,(+$('qty').value||0)-1);
+$('bAdd').onclick=()=>{const c=$('pCod').textContent,q=+$('qty').value||0;if(!c)return;const k=norm(c);if(!cnt[k])cnt[k]={c,q:0};cnt[k].q+=q;save();$('prodBox').style.display='none';$('busca').value=''};
+$('bScan').onclick=async()=>{$('scanBox').style.display='block';scanner=scanner||new Html5Qrcode('reader');try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:250},t=>{scanner.stop();$('scanBox').style.display='none';$('busca').value=t;$('busca').dispatchEvent(new Event('input'))})}catch(e){alert(e)}};
+$('bStop').onclick=()=>{if(scanner)scanner.stop();$('scanBox').style.display='none'};
+$('catFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});cat=rows.slice(1).map(r=>({c:String(r[0]).trim(),d:String(r[1]||'').trim(),e:Number(r[2])||0})).filter(p=>p.c);save();alert(cat.length+' importados')};r.readAsArrayBuffer(f)};
+function render(){$('lista').innerHTML=Object.values(cnt).map(x=>`<div><b>${x.c}</b> ${x.q}</div>`).join('')||'Vacío';let h='';cat.forEach(p=>{const f=cnt[norm(p.c)]?cnt[norm(p.c)].q:0;h+=`<div>${p.c} sis:${p.e} fis:${f} dif:${f-p.e}</div>`});$('dTab').innerHTML=h||'Sin datos';$('catInfo').textContent=cat.length+' productos'}
+$('bClr').onclick=()=>{if(confirm('¿Borrar conteo?')){cnt={};save()}};
+$('bExp').onclick=()=>{const a=[['Código','Desc','Sistema','Físico','Dif'],...cat.map(p=>{const q=cnt[norm(p.c)]?cnt[norm(p.c)].q:0;return[p.c,p.d,p.e,q,q-p.e]})];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'Conteo');XLSX.writeFile(wb,'conteo_'+room+'.xlsx')};
 </script>
 </body>
 </html>
