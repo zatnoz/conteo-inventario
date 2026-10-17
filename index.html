@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Conteo de inventario</title>
+<meta name="theme-color" content="#1e3a8a">
+<meta name="description" content="Conteo de inventario compartido en tiempo real">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Inventario">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="format-detection" content="telephone=no">
 <script>
 /* ============ CONFIGURACIÓN (Supabase) ============
    Solo se usa la clave pública (publishable/anon). NUNCA ponga aquí la clave "service_role". */
@@ -70,6 +80,9 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
 .lab svg{width:100%;max-width:38mm;height:auto}.lab b{display:block;font-size:15px;word-break:break-all}
 @media print{nav,.noprint,.banner,#toast{display:none!important}body{background:#fff;padding:0}main{max-width:none;padding:0}.tab{display:none!important}#t-etiq{display:block!important}#t-etiq .card{box-shadow:none;padding:0;margin:0}@page{margin:8mm}}
 .hide{display:none!important}
+#updBar{display:none;position:sticky;top:0;z-index:60;background:#f59e0b;color:#111;padding:8px 10px;font-weight:700;align-items:center;justify-content:space-between;gap:8px}
+#updBar button{min-height:40px;font-size:15px;padding:6px 14px;background:#111;color:#fff;flex:none}
+.pwa-help{font-size:14px;color:#334155;margin:6px 0}
 body:not(.is-admin) .admin-only{display:none!important}
 #topbar{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 10px;background:#0f172a;color:#e2e8f0;font-size:14px}
 #topbar b{color:#fff}
@@ -92,6 +105,8 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
 </style>
 </head>
 <body>
+<div id="updBar" role="alert"><span>🆕 Hay una versión nueva</span><button id="updGo">Actualizar</button></div>
+<div class="banner" id="banner"></div>
 <!-- ===== PANTALLAS DE ACCESO ===== -->
 <div id="scrLoad" class="scr"><div class="card" style="text-align:center">Cargando…</div></div>
 
@@ -105,6 +120,7 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
   <div id="aMsg" class="err"></div>
   <button id="aGo" style="width:100%;margin-top:6px">Ingresar</button>
   <button id="aForgot" class="sec" style="width:100%;margin-top:8px;font-size:15px;min-height:44px">Olvidé mi contraseña</button>
+  <button class="sec hide" data-inst style="width:100%;margin-top:8px;font-size:15px;min-height:44px">📲 Instalar app en este teléfono</button>
  </div>
 </div>
 
@@ -206,6 +222,15 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
 </section>
 
 <section class="tab" id="t-cat">
+ <div class="card" id="pwaCard">
+  <h2>📲 Instalar app</h2>
+  <div id="pwaState" class="muted"></div>
+  <button class="grn hide" data-inst style="width:100%;margin:8px 0">📲 Instalar app</button>
+  <div class="pwa-help" id="pwaHelp"></div>
+  <div class="pwa-help" id="pwaOffline"></div>
+  <button class="sec" id="bOcrPrep" style="width:100%;margin-top:6px">⬇️ Preparar lector de texto sin conexión</button>
+  <div class="pwa-help" id="pwaPersist"></div>
+ </div>
  <div class="card"><h2>Catálogo</h2><div id="catInfo"></div></div>
  <div class="card admin-only">
   <h2>Importar catálogo</h2>
@@ -339,7 +364,7 @@ function renderBadge(){const b=$('badge');if(!b)return;const p=pending.filter(e=
  b.className='badge '+(off?'off':p?'sync':'on');
  const pl=p===1?' pendiente':' pendientes';b.textContent=off?('● Sin conexión'+(p?' · '+p+pl:'')):p?('● Sincronizando · '+p):'● En línea';
  if(f)b.textContent+=' · ⚠ '+f+' rechazados';b.title=rtOK?'Tiempo real activo':'Actualización cada '+(POLL_MS/1000)+' s'}
-window.addEventListener('online',()=>{setNet(true);renderBadge();pollOnce()});window.addEventListener('offline',()=>{renderBadge()});
+window.addEventListener('online',()=>{setNet(true);renderBadge();if(needInit&&ws)initialLoad().then(()=>pollOnce());else pollOnce()});window.addEventListener('offline',()=>{renderBadge()});
 
 /* ============ derivar totales ============ */
 function derive(){const c={};
@@ -379,7 +404,8 @@ async function syncSessions(){const{data,error,status}=await sb.from('count_sess
  if(open&&(!sess||open.id!==sess.id)){const had=!!sess;sess={id:open.id,name:open.name};await loadEntries();if(had)toast('📣 Nuevo conteo iniciado: '+open.name)}
  else if(open)sess.name=open.name;
  renderTop()}
-async function initialLoad(){try{await syncSessions();await Promise.all([loadProducts(),loadMembers()]);setNet(true)}catch(e){if(netFail(e,e.status))setNet(false);else{toast('Error al cargar: '+friendly(e),true)}}refresh()}
+let needInit=false;
+async function initialLoad(){if(!navigator.onLine){needInit=true;setNet(false);refresh();return}needInit=false;try{await syncSessions();await Promise.all([loadProducts(),loadMembers()]);setNet(true)}catch(e){if(netFail(e,e.status))setNet(false);else{toast('Error al cargar: '+friendly(e),true)}}refresh()}
 async function pollOnce(){if(!ws||!user||polling)return;polling=true;
  try{await flush();await syncSessions();
   if(sess){const since=new Date(Math.max(0,lastEntryT-60000)).toISOString();
@@ -727,7 +753,7 @@ function renderCat(){if(!ws)return;const n=Object.keys(cnt).length;
  $('memList').innerHTML='<b>Miembros</b>'+members.map(m=>`<div class="mem"><div class="d">${esc(m.display_name||'(sin nombre)')}${m.user_id===user.id?' <small>(usted)</small>':''}<br><small>${m.role==='admin'?'administrador':'miembro'}</small></div>${isAdmin()&&m.user_id!==user.id?`${m.role==='admin'?'':`<button class="sec" data-mkadmin="${esc(m.user_id)}">Hacer admin</button>`}<button class="red" data-rm="${esc(m.user_id)}">Quitar</button>`:''}</div>`).join('');
  const cur=$('expSes').value;$('expSes').innerHTML=sessions.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.status==='open'?' (actual)':' · cerrado '+fdate(s.closed_at)}</option>`).join('');if(cur&&sessions.some(s=>s.id===cur))$('expSes').value=cur;else if(sess)$('expSes').value=sess.id;
  let used=0;try{used=(sget(K_CACHE+ws.id)||'').length+(sget(pendKey())||'').length}catch(e){}
- $('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 5 (multiusuario)`}
+ $('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 7 (app instalable)`}
 $('bCopy').onclick=async()=>{try{await navigator.clipboard.writeText(ws.invite_code);toast('Código copiado')}catch(e){toast('Código: '+ws.invite_code)}};
 $('bRot').onclick=async()=>{if(!confirm('El código anterior dejará de funcionar. ¿Generar uno nuevo?'))return;const{data,error}=await sb.rpc('rotate_invite_code',{p_ws:ws.id});if(error)return toast(friendly(error),true);ws.invite_code=data;renderCat()};
 $('bName').onclick=async()=>{const n=$('myName').value.trim();if(!n)return;const{error}=await sb.from('workspace_members').update({display_name:n.slice(0,60)}).eq('workspace_id',ws.id).eq('user_id',user.id);if(error)return toast(friendly(error),true);ws.display_name=n;toast('Nombre actualizado');loadMembers().catch(()=>{})};
@@ -812,7 +838,7 @@ $('aForgot').onclick=async()=>{const email=$('aEmail').value.trim();if(!email)re
 $('rGo').onclick=async()=>{const p=$('rPass').value;if(p.length<8){$('rMsg').textContent='Mínimo 8 caracteres';return}
  const{error}=await sb.auth.updateUser({password:p});if(error){$('rMsg').textContent=friendly(error);return}toast('Contraseña actualizada');await enter()};
 
-function resetSession(){hist=[];hSeq++;histBusy=false;histLoaded=false;histMore=false;stopRealtime();clearInterval(pollT);ws=null;sess=null;sessions=[];members=[];cat=[];idx=new Map();entries=new Map();pending=[];cnt={};cur=null;lastEntryT=lastProdT=0;rebuild();document.body.classList.remove('is-admin')}
+function resetSession(){needInit=false;hist=[];hSeq++;histBusy=false;histLoaded=false;histMore=false;stopRealtime();clearInterval(pollT);ws=null;sess=null;sessions=[];members=[];cat=[];idx=new Map();entries=new Map();pending=[];cnt={};cur=null;lastEntryT=lastProdT=0;rebuild();document.body.classList.remove('is-admin')}
 async function signOut(){const n=pending.filter(e=>!e.failed).length;if(n&&!confirm(`Hay ${n} movimientos sin enviar. Se conservan en este teléfono y se enviarán cuando vuelva a ingresar. ¿Salir?`))return;
  try{await sb.auth.signOut()}catch(e){}resetSession();user=null;screen('scrAuth')}
 $('bOut').onclick=signOut;$('oOut').onclick=signOut;
@@ -820,7 +846,7 @@ $('bOut').onclick=signOut;$('oOut').onclick=signOut;
 async function enter(){ // después de iniciar sesión
  const{data:{session}}=await sb.auth.getSession();user=session?session.user:null;if(!user){screen('scrAuth');return}
  resetSession();
- try{const{data,error,status}=await sb.from('workspace_members').select('workspace_id,role,display_name,workspaces(id,name,invite_code)').eq('user_id',user.id).order('created_at');if(error){error.status=status;throw error}mems=data.filter(m=>m.workspaces)}
+ try{if(!navigator.onLine)throw Object.assign(new Error('Failed to fetch (sin conexión)'),{status:0});const{data,error,status}=await sb.from('workspace_members').select('workspace_id,role,display_name,workspaces(id,name,invite_code)').eq('user_id',user.id).order('created_at');if(error){error.status=status;throw error}mems=data.filter(m=>m.workspaces)}
  catch(e){if(netFail(e,e.status)){const last=sget(K_WS+user.id),c=jget('inv5_mem_'+user.id,[],Array.isArray);mems=c;if(!mems.length){screen('scrAuth');aMsg('Sin conexión. Conéctese para ingresar la primera vez.');return}}else{toast(friendly(e),true);mems=[]}}
  sset('inv5_mem_'+user.id,JSON.stringify(mems));
  const last=sget(K_WS+user.id),m=mems.find(x=>x.workspace_id===last)||(mems.length===1?mems[0]:null);
@@ -850,7 +876,7 @@ async function boot(){
  const missing=[['supabase','conexión'],['XLSX','Excel'],['Tesseract','lectura de texto'],['Html5Qrcode','escáner QR'],['qrcode','etiquetas QR']].filter(x=>!hasLib(x[0])).map(x=>x[1]);
  if(missing.length)banner('⚠️ No cargaron algunas librerías ('+missing.join(', ')+'). Se necesita internet; recargue la página.');
  if(!hasLib('supabase')){screen('scrAuth');aMsg('No se pudo cargar la librería de conexión. Revise su internet y recargue.');return}
- try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})}
+ try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},db:{retry:false}})}
  catch(e){screen('scrAuth');aMsg('Error de configuración: '+e.message);return}
  window.APP.sb=sb;
  sb.auth.onAuthStateChange((ev,session)=>{setTimeout(()=>{
@@ -861,6 +887,51 @@ async function boot(){
  if(session)await enter();else if($('scrRecov').classList.contains('hide'))screen('scrAuth')}
 window.APP={get cat(){return cat},get cnt(){return cnt},get cur(){return cur},get pending(){return pending},get entries(){return entries},get ws(){return ws},get sess(){return sess},get net(){return net},get rtOK(){return rtOK},
  ocrMatches,tokens,key,search,select,ocrPipeline,exportData,flush,pollOnce,derive,difRows,get hist(){return hist}};
+/* ============ PWA: instalación, sin conexión y actualizaciones ============ */
+const PWA={reg:null,prompt:null,ver:null};
+const isStandalone=()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}};
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function pwaRender(){
+ const st=isStandalone();
+ document.querySelectorAll('[data-inst]').forEach(b=>b.classList.toggle('hide',!PWA.prompt||st));
+ $('pwaState').textContent=st?'✅ Está usando la app instalada.':(PWA.prompt?'Puede instalarla para abrirla desde la pantalla de inicio, como cualquier app.':'Aún no está instalada en este teléfono.');
+ let h='';
+ if(!st){
+  if(isIOS())h='<b>iPhone / iPad:</b> abra esta página en <b>Safari</b>, toque <b>Compartir</b> (el cuadro con la flecha ⬆️) y elija <b>«Agregar a pantalla de inicio»</b>.';
+  else if(!PWA.prompt)h='<b>Android (Chrome):</b> toque el menú <b>⋮</b> y elija <b>«Instalar app»</b> o <b>«Agregar a pantalla de inicio»</b>.'}
+ $('pwaHelp').innerHTML=h;
+ const sw='serviceWorker' in navigator;
+ $('pwaOffline').textContent=!sw?'Este navegador no permite uso sin conexión de la app.':(PWA.reg&&PWA.reg.active?`✅ La app ya funciona sin conexión${PWA.ver?' (versión '+PWA.ver+')':''}. Los conteos hechos sin internet se guardan y se envían al volver la conexión.`:'La app se está preparando para usarse sin conexión…');
+ $('bOcrPrep').classList.toggle('hide',!sw)}
+async function pwaPersist(){
+ const el=$('pwaPersist');if(!navigator.storage||!navigator.storage.persist){el.textContent='';return}
+ try{let ok=await navigator.storage.persisted();if(!ok)ok=await navigator.storage.persist();
+  el.textContent=ok?'🔒 Almacenamiento protegido: el teléfono no borrará los datos guardados de la app (conteos pendientes, caché).':'ℹ️ El navegador no concedió protección de almacenamiento. Si el teléfono se queda sin espacio podría borrar datos locales; instale la app y mantenga los conteos sincronizados.'}catch(e){}}
+function updShow(){$('updBar').style.display='flex'}
+function pwaWatch(reg){
+ const track=w=>w&&w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)updShow()});
+ if(reg.waiting&&navigator.serviceWorker.controller)updShow();
+ reg.addEventListener('updatefound',()=>track(reg.installing))}
+$('updGo').onclick=()=>{const w=PWA.reg&&PWA.reg.waiting;$('updGo').disabled=true;if(w)w.postMessage({type:'SKIP_WAITING'});else location.reload()};
+document.querySelectorAll('[data-inst]').forEach(b=>b.onclick=async()=>{const pr=PWA.prompt;if(!pr)return;pr.prompt();try{await pr.userChoice}catch(e){}PWA.prompt=null;pwaRender()});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();PWA.prompt=e;pwaRender()});
+window.addEventListener('appinstalled',()=>{PWA.prompt=null;pwaRender();toast('App instalada ✅')});
+$('bOcrPrep').onclick=async()=>{const b=$('bOcrPrep');if(!navigator.onLine){toast('Conéctese a internet para descargar el lector de texto',true);return}
+ b.disabled=true;b.textContent='Descargando… (unos 15 MB, espere)';
+ try{await getWorker();b.textContent='✅ Lector de texto listo para usar sin conexión';toast('Lector de texto listo ✅')}catch(e){b.textContent='⬇️ Preparar lector de texto sin conexión';toast('No se pudo descargar: '+(e.message||e),true)}b.disabled=false};
+async function pwaInit(){
+ pwaRender();pwaPersist();
+ if(!('serviceWorker' in navigator)||!/^https?:$/.test(location.protocol))return;
+ let reloading=false,had=!!navigator.serviceWorker.controller;
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(reloading)return;reloading=true;location.reload()});
+ navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='VERSION'){PWA.ver=e.data.version;pwaRender()}});
+ try{
+  const reg=await navigator.serviceWorker.register('sw.js',{scope:'./'});PWA.reg=reg;window.APP.swReg=reg;pwaWatch(reg);
+  const ready=await navigator.serviceWorker.ready;(ready.active||reg.active).postMessage({type:'GET_VERSION'});pwaRender();
+  const chk=()=>reg.update().catch(()=>{});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')chk()});setInterval(chk,30*60*1000)
+ }catch(e){$('pwaOffline').textContent='No se pudo activar el modo sin conexión: '+(e.message||e)}}
+pwaInit();
 boot();
 
 </script>
