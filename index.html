@@ -28,6 +28,9 @@ input[type=text],input[type=search],input[type=number],select{font:inherit;font-
 small,.muted{color:#64748b;font-size:14px}
 .banner{background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:10px;margin:10px;display:none}
 .banner button{min-height:40px;font-size:15px;padding:6px 10px;margin-top:6px}
+#modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px}
+#modal.on{display:flex}#modal .box{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:420px}
+#modal button:disabled{opacity:.4;cursor:not-allowed}
 #toast{position:fixed;left:10px;right:10px;bottom:14px;z-index:50;background:#14532d;color:#fff;border-radius:12px;padding:14px;display:none;text-align:center;font-weight:600}
 #toast.err{background:#991b1b}
 /* contar */
@@ -172,6 +175,13 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
 </section>
 
 </main>
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div class="box">
+ <h2 id="mTitle" style="color:#dc2626">⚠️ Borrar todos los datos</h2>
+ <p>Se borrarán el <b>catálogo</b> y <b>todo el conteo</b> de este teléfono. Esta acción no se puede deshacer (exporte un respaldo antes).</p>
+ <p>Para continuar escriba la palabra <b>autorizar</b>:</p>
+ <input type="text" id="mWord" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="autorizar">
+ <div class="row" style="margin-top:12px"><button class="sec" id="mCancel">Cancelar</button><button class="red" id="mOk" disabled>Borrar todo</button></div>
+</div></div>
 <div id="toast"></div>
 
 <script>
@@ -418,8 +428,15 @@ $('bkpFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!
   const c=cleanCat(d.cat),n=cleanCnt(d.cnt);if(!confirm(`Este respaldo tiene ${c.length} productos y ${Object.keys(n).length} conteos.\n¿Reemplazar los datos actuales?`))return;
   cat=c;cnt=n;rebuild();saveCat();saveCnt();clearSel();renderCat();toast('Respaldo importado')}
  catch(err){toast('Respaldo inválido: '+(err&&err.message||err),true)}};
-$('bReset').onclick=()=>{if(!confirm('¿Reiniciar la app?\n\nSe BORRARÁN el catálogo y todo el conteo de este teléfono. Se recomienda exportar un respaldo antes.'))return;
- if(!confirm('Última confirmación: ¿borrar todos los datos?'))return;
+const resetOk=()=>norm($('mWord').value)==='AUTORIZAR';
+function modalClose(){$('modal').classList.remove('on');$('mWord').value='';$('mOk').disabled=true}
+$('bReset').onclick=()=>{$('mWord').value='';$('mOk').disabled=true;$('modal').classList.add('on');setTimeout(()=>$('mWord').focus(),50)};
+$('mWord').oninput=()=>{$('mOk').disabled=!resetOk()};
+$('mWord').onkeydown=e=>{if(e.key==='Enter'&&resetOk())$('mOk').click();};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('modal').classList.contains('on'))modalClose()});
+$('mCancel').onclick=modalClose;
+$('modal').onclick=e=>{if(e.target===$('modal'))modalClose()};
+$('mOk').onclick=()=>{if(!resetOk())return;
  [K_CAT,K_CNT,OLD_CAT,OLD_CNT].forEach(sdel);try{Object.keys(localStorage).filter(k=>k.startsWith('inv3_dañado_')).forEach(k=>localStorage.removeItem(k))}catch(e){}
  cat=[];cnt={};cur=null;rebuild();location.reload()};
 
