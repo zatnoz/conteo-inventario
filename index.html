@@ -1,206 +1,454 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Conteo de Inventario</title>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Conteo de inventario</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f3f4f6;color:#111;font-size:18px}
-nav{display:flex;position:sticky;top:0;background:#1e3a8a;z-index:5}nav button{flex:1;background:none;color:#fff;border:0;padding:14px 4px;font-size:15px}nav button.on{background:#2563eb;font-weight:bold}
-section{display:none;padding:12px;max-width:700px;margin:auto}section.on{display:block}
-.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px #0002}
-button,.btn{font-size:18px;padding:14px;border-radius:10px;border:0;background:#2563eb;color:#fff;min-height:52px;cursor:pointer}
-button.sec{background:#e5e7eb;color:#111}button.red{background:#dc2626}button.grn{background:#16a34a}
-input,select{font-size:20px;padding:12px;border:1px solid #9ca3af;border-radius:10px;width:100%}
-.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.qty{display:flex;gap:8px;align-items:center}.qty button{width:72px;height:72px;font-size:36px;flex:none}.qty input{text-align:center;font-size:36px;height:72px}
-.sug div{padding:12px;border-bottom:1px solid #eee}.sug div:active{background:#dbeafe}
-.item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #eee}.item .d{flex:1}.item input{width:80px;font-size:18px;padding:8px}
-small{color:#555}.tok{display:inline-block;margin:4px;padding:10px 14px;background:#dbeafe;border-radius:20px}
-#labels{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}.lab{border:1px dashed #999;padding:2mm;text-align:center;font-size:11px;break-inside:avoid;background:#fff}.lab b{font-size:14px;display:block}
-@media print{nav,.noprint{display:none!important}section{display:none!important}#sEtiq{display:block!important;padding:0}body{background:#fff}}
-#camWrap{position:relative;background:#000;border-radius:10px;overflow:hidden}#vid{width:100%;display:block}
-#guide{position:absolute;left:8%;width:84%;top:30%;height:40%;border:3px solid #22c55e;box-shadow:0 0 0 999px #0007;border-radius:6px}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin-top:8px}.stats div{background:#f3f4f6;border-radius:8px;padding:6px}.stats b{display:block;font-size:24px}
-.pos{color:#ea580c}.neg{color:#dc2626}.zero{color:#16a34a}.tok.exact{background:#16a34a;color:#fff;font-weight:bold}
-#dFil button{font-size:14px;padding:8px 4px;min-height:44px;background:#e5e7eb;color:#111}#dFil button.on{background:#2563eb;color:#fff}
-#dTab{width:100%;border-collapse:collapse;font-size:15px}#dTab td,#dTab th{padding:8px 4px;border-bottom:1px solid #eee;text-align:right}#dTab td:first-child,#dTab th:first-child{text-align:left}
-</style></head><body>
-<div id="roomBar" style="background:#1e3a8a;color:#fff;padding:8px;text-align:center">Sala: <b id="roomName"></b> <button class="sec" onclick="changeRoom()" style="padding:4px 10px;font-size:14px;min-height:auto;margin-left:8px">Cambiar</button></div>
-<nav><button data-s="sConteo" class="on">Contar</button><button data-s="sLista">Lista</button><button data-s="sDif">Diferencias</button><button data-s="sCat">Catálogo</button><button data-s="sEtiq">Etiquetas QR</button></nav>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{touch-action:manipulation}
+body{margin:0;font:18px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#eef0f4;color:#111;padding-bottom:40px}
+nav{display:flex;position:sticky;top:0;z-index:10;background:#1e3a8a}
+nav button{flex:1;background:none;border:0;color:#cbd5e1;padding:14px 2px;font-size:14px;min-height:54px;border-radius:0}
+nav button.on{background:#2563eb;color:#fff;font-weight:700}
+main{max-width:720px;margin:0 auto;padding:10px}
+.tab{display:none}.tab.on{display:block}
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px #0003}
+h2{margin:0 0 8px;font-size:20px}
+button{font:inherit;font-size:18px;font-weight:600;padding:12px;border:0;border-radius:12px;background:#2563eb;color:#fff;min-height:54px;cursor:pointer}
+button:active{filter:brightness(.9)}
+button.sec{background:#e2e8f0;color:#111}button.red{background:#dc2626}button.grn{background:#16a34a}button.act{outline:4px solid #93c5fd}
+input[type=text],input[type=search],input[type=number],select{font:inherit;font-size:20px;width:100%;padding:12px;border:2px solid #94a3b8;border-radius:12px;background:#fff;min-height:54px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+small,.muted{color:#64748b;font-size:14px}
+.banner{background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:10px;margin:10px;display:none}
+.banner button{min-height:40px;font-size:15px;padding:6px 10px;margin-top:6px}
+#toast{position:fixed;left:10px;right:10px;bottom:14px;z-index:50;background:#14532d;color:#fff;border-radius:12px;padding:14px;display:none;text-align:center;font-weight:600}
+#toast.err{background:#991b1b}
+/* contar */
+#prod{border:3px solid #2563eb}
+#pCod{font-size:26px;font-weight:800;word-break:break-all}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0;text-align:center}
+.stats>div{background:#f1f5f9;border-radius:10px;padding:6px 2px}.stats b{display:block;font-size:24px}.stats small{font-size:12px}
+.qty{display:flex;gap:8px;margin:10px 0}.qty button{width:84px;height:84px;font-size:44px;flex:none;padding:0}
+.qty input{height:84px;font-size:42px;text-align:center;font-weight:700}
+.pos{color:#ea580c}.neg{color:#dc2626}.zero{color:#16a34a}
+.sug>div{padding:12px 6px;border-bottom:1px solid #e2e8f0}.sug>div:active{background:#dbeafe}
+#camWrap{position:relative;background:#000;border-radius:12px;overflow:hidden;min-height:140px}
+#vid{width:100%;display:block}
+#guide{position:absolute;left:10%;width:80%;top:37.5%;height:25%;border:3px solid #22c55e;border-radius:8px;box-shadow:0 0 0 999px rgba(0,0,0,.45);pointer-events:none}
+#reader{width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{padding:12px 16px;border-radius:26px;background:#e2e8f0;font-weight:700;font-size:18px;cursor:pointer;min-height:48px}
+.chip small{display:block;font-weight:400;color:inherit;opacity:.85;font-size:12px}
+.chip.exact{background:#16a34a;color:#fff}.chip.near{background:#fde68a}
+/* tablas */
+table{width:100%;border-collapse:collapse;font-size:16px}th,td{padding:8px 4px;border-bottom:1px solid #e2e8f0;text-align:right;vertical-align:middle}
+th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
+.filters{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.filters button{font-size:14px;padding:6px 2px;min-height:48px;background:#e2e8f0;color:#111}.filters button.on{background:#2563eb;color:#fff}
+.item{display:flex;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid #e2e8f0}.item .d{flex:1;min-width:0;word-break:break-word}.item input{width:96px;flex:none;text-align:center;font-weight:700}.item button{width:54px;flex:none;padding:0}
+.mapgrid{display:grid;gap:6px}
+/* etiquetas */
+#labels{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:3mm}
+.lab{background:#fff;border:1px dashed #94a3b8;padding:2mm;text-align:center;break-inside:avoid;font-size:11px;overflow:hidden}
+.lab svg{width:100%;max-width:38mm;height:auto}.lab b{display:block;font-size:15px;word-break:break-all}
+@media print{nav,.noprint,.banner,#toast{display:none!important}body{background:#fff;padding:0}main{max-width:none;padding:0}.tab{display:none!important}#t-etiq{display:block!important}#t-etiq .card{box-shadow:none;padding:0;margin:0}@page{margin:8mm}}
+</style>
+</head>
+<body>
+<nav id="nav">
+ <button data-t="contar" class="on">Contar</button>
+ <button data-t="lista">Lista</button>
+ <button data-t="dif">Diferencias</button>
+ <button data-t="cat">Catálogo</button>
+ <button data-t="etiq">Etiquetas QR</button>
+</nav>
+<div class="banner" id="banner"></div>
+<main>
 
-<section id="sConteo" class="on">
- <div class="card grid3"><button id="bScan">📷 Escanear QR</button><button id="bOcr">🔤 Leer texto</button><button class="sec" id="bMan">⌨️ Manual</button></div>
- <div class="card" id="scanBox" style="display:none"><div id="reader"></div><button class="red" id="bStop" style="width:100%;margin-top:8px">Detener cámara</button></div>
- <div class="card" id="ocrBox" style="display:none">
-  <div id="camWrap"><video id="vid" playsinline muted autoplay></video><div id="guide"></div></div>
-  <small>Encuadre el código dentro del rectángulo verde. Mantén el teléfono estable y con buena luz.</small>
-  <div class="row" style="margin-top:8px"><button class="grn" id="bCap">📸 Capturar</button><button class="sec" id="bAuto">Auto: ON</button><button class="red" id="bOcrStop">Cerrar</button></div>
-  <label class="btn sec" style="display:block;text-align:center;margin-top:8px">o subir/tomar foto<input type="file" accept="image/*" capture="environment" id="ocrFile" hidden></label>
-  <div id="ocrMsg"></div><div id="ocrTok"></div></div>
- <div class="card"><input id="busca" placeholder="Código o descripción…" autocomplete="off"><div class="sug" id="sug"></div></div>
- <div class="card" id="prodBox" style="display:none">
-  <div style="font-size:24px;font-weight:bold" id="pCod"></div><div id="pDesc"></div><small id="pInfo"></small><div class="stats"><div><small>Sistema</small><b id="stSis"></b></div><div><small>Llevas</small><b id="stLle"></b></div><div><small>Dif. actual</small><b id="stDif"></b></div><div><small>Dif. al agregar</small><b id="stNew"></b></div></div>
-  <div class="qty" style="margin:12px 0"><button class="sec" id="qMenos">−</button><input id="qty" type="number" inputmode="numeric" value="1"><button class="sec" id="qMas">+</button></div>
-  <button class="grn" id="bAdd" style="width:100%">Agregar al conteo</button>
+<!-- CONTAR -->
+<section class="tab on" id="t-contar">
+ <div class="card"><div class="grid3">
+  <button id="bOcr">🔤 Leer texto</button><button id="bQr">📷 Escanear QR</button><button id="bMan" class="sec">⌨️ Manual</button>
+ </div></div>
+
+ <div class="card" id="prod" style="display:none">
+  <div id="pCod"></div><div id="pDesc"></div>
+  <div class="stats">
+   <div><small>Sistema</small><b id="sSis">–</b></div>
+   <div><small>Llevas</small><b id="sLle">0</b></div>
+   <div><small>Dif. actual</small><b id="sDif">–</b></div>
+   <div><small>Si agregas</small><b id="sNew">–</b></div>
+  </div>
+  <div class="qty"><button class="sec" id="qMenos" aria-label="menos">−</button><input id="qty" type="number" inputmode="numeric" value="1" aria-label="cantidad"><button class="sec" id="qMas" aria-label="más">+</button></div>
+  <div class="row"><button class="sec" id="bCancel">Cancelar</button><button class="grn" id="bAdd" style="flex:2">Agregar al conteo</button></div>
  </div>
- <div id="toast" class="card" style="display:none;background:#dcfce7"></div>
+
+ <div class="card" id="ocrCard" style="display:none">
+  <div id="camWrap"><video id="vid" playsinline muted autoplay></video><div id="guide"></div></div>
+  <div class="muted" style="margin:6px 0">Ponga <b>una línea de código</b> dentro del rectángulo verde.</div>
+  <div class="row"><button class="grn" id="bCap">📸 Capturar</button><button class="sec" id="bAuto">Auto: ON</button><button class="red" id="bOcrX">Cerrar</button></div>
+  <label class="sec" style="display:block;text-align:center;margin-top:8px"><span class="btn-like" style="display:block;background:#e2e8f0;border-radius:12px;padding:14px;font-weight:600">📁 Subir / tomar foto</span><input type="file" accept="image/*" capture="environment" id="ocrFile" hidden></label>
+  <div id="ocrMsg" class="muted" style="margin-top:8px"></div>
+  <div id="chips" class="chips"></div>
+ </div>
+
+ <div class="card" id="qrCard" style="display:none">
+  <div id="reader"></div>
+  <button class="red" id="bQrX" style="width:100%;margin-top:8px">Cerrar cámara</button>
+ </div>
+
+ <div class="card">
+  <input type="search" id="busca" placeholder="Código o descripción…" autocomplete="off" autocapitalize="characters" enterkeyhint="search">
+  <div class="sug" id="sug"></div>
+ </div>
 </section>
 
-<section id="sLista"><div class="card"><div class="row"><button class="grn" id="bExp">⬇️ Exportar .xlsx</button><button class="red" id="bClr">Borrar conteo</button></div><small id="lInfo"></small></div><div class="card" id="lista"></div></section>
+<!-- LISTA -->
+<section class="tab" id="t-lista">
+ <div class="card">
+  <h2>Conteo actual</h2>
+  <div id="lInfo" class="muted"></div>
+  <div class="row" style="margin-top:8px"><button class="grn" id="bExp">⬇️ Exportar .xlsx</button><button class="red" id="bClr">Borrar conteo</button></div>
+  <small>Todo se guarda automáticamente en este teléfono.</small>
+ </div>
+ <div class="card" id="lista"></div>
+</section>
 
-<section id="sDif"><div class="card"><div class="stats" id="dTot"></div>
- <input id="dBus" placeholder="Buscar código o descripción" style="margin:8px 0"><div class="row" id="dFil"><button data-f="todos" class="on">Todos</button><button data-f="dif">Con dif.</button><button data-f="sin">Sin contar</button><button data-f="con">Contados</button></div></div>
- <div class="card" style="padding:4px"><table id="dTab"></table></div></section>
-<section id="sCat"><div class="card"><b>Importar catálogo (Excel/CSV)</b><br><small>Ej. exportación de Microsip</small><input type="file" id="catFile" accept=".xlsx,.xls,.csv"></div>
- <div class="card" id="mapBox" style="display:none"><b>Asignar columnas</b><br>Código<select id="mCod"></select>Descripción<select id="mDesc"></select>Existencia en sistema<select id="mExi"></select><button id="bMap" style="width:100%;margin-top:10px">Importar</button></div>
- <div class="card" id="catInfo"></div></section>
+<!-- DIFERENCIAS -->
+<section class="tab" id="t-dif">
+ <div class="card">
+  <div class="stats" id="dTot"></div>
+  <input type="search" id="dBus" placeholder="Buscar código o descripción" autocomplete="off">
+  <div class="filters" id="dFil"><button data-f="todos" class="on">Todos</button><button data-f="dif">Con dif.</button><button data-f="sin">Sin contar</button><button data-f="con">Contados</button></div>
+  <small>“Con dif.” = ya contados cuyo físico no coincide con el sistema.</small>
+ </div>
+ <div class="card" style="padding:6px"><table id="dTab"></table><div id="dMore" class="muted"></div></div>
+</section>
 
-<section id="sEtiq"><div class="card noprint"><input id="eFil" placeholder="Filtrar (vacío = todo el catálogo)"><div class="row" style="margin-top:8px"><button id="bGen">Generar</button><button class="sec" onclick="print()">🖨️ Imprimir</button></div></div><div id="labels"></div></section>
+<!-- CATALOGO / DATOS -->
+<section class="tab" id="t-cat">
+ <div class="card"><h2>Catálogo</h2><div id="catInfo"></div></div>
+ <div class="card">
+  <h2>Importar catálogo</h2>
+  <div class="muted">Archivo Excel (.xlsx/.xls) o CSV con código, descripción y existencia (p. ej. exportado de Microsip).</div>
+  <input type="file" id="catFile" accept=".xlsx,.xls,.csv,.txt" style="margin-top:8px">
+  <div id="mapBox" style="display:none;margin-top:12px">
+   <label><input type="checkbox" id="mHdr" checked style="width:24px;height:24px;vertical-align:middle"> La primera fila es encabezado</label>
+   <div class="mapgrid">
+    <label>Código<select id="mCod"></select></label>
+    <label>Descripción<select id="mDesc"></select></label>
+    <label>Existencia en sistema<select id="mExi"></select></label>
+   </div>
+   <div id="mPrev" style="overflow:auto;margin:8px 0"></div>
+   <button id="bMap" class="grn" style="width:100%">Importar catálogo</button>
+  </div>
+ </div>
+ <div class="card">
+  <h2>Respaldo y datos</h2>
+  <div class="muted">Guarde un respaldo de vez en cuando (catálogo + conteo).</div>
+  <div class="row" style="margin:8px 0"><button id="bBkp">💾 Exportar respaldo</button><button id="bBkpIn" class="sec">📂 Importar respaldo</button></div>
+  <input type="file" id="bkpFile" accept=".json,application/json" hidden>
+  <button class="red" id="bReset" style="width:100%">🗑️ Reiniciar app / borrar datos</button>
+  <div class="muted" id="stoInfo" style="margin-top:8px"></div>
+ </div>
+</section>
+
+<!-- ETIQUETAS -->
+<section class="tab" id="t-etiq">
+ <div class="card noprint">
+  <h2>Etiquetas QR</h2>
+  <input type="search" id="eFil" placeholder="Filtrar (vacío = todo el catálogo)" autocomplete="off">
+  <div class="row" style="margin:8px 0"><label>Columnas<select id="eCols"><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label></div>
+  <div class="row"><button id="bGen">Generar</button><button class="sec" id="bPrint">🖨️ Imprimir</button></div>
+  <div class="muted" id="eInfo"></div>
+ </div>
+ <div id="labels"></div>
+</section>
+
+</main>
+<div id="toast"></div>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyA8BhkDLgJdE7xk3Y5AwcESd1pAaPGvU2M",
-  authDomain: "conteo-de-inventarios.firebaseapp.com",
-  databaseURL: "https://conteo-de-inventarios-default-rtdb.firebaseio.com",
-  projectId: "conteo-de-inventarios",
-  storageBucket: "conteo-de-inventarios.firebasestorage.app",
-  messagingSenderId: "628986037167",
-  appId: "1:628986037167:web:d92690f68a0ae3fde4a55a"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-let room = localStorage.getItem('room') || prompt('Código de sala:','REFAC') || 'DEMO';
-room = room.toUpperCase().replace(/[^A-Z0-9\-]/g,'');
-localStorage.setItem('room', room);
-document.getElementById('roomName').textContent = room;
-const roomRef = db.ref('rooms/' + room);
+'use strict';
+/* ============ utilidades ============ */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+const key=s=>norm(s).replace(/[^A-Z0-9]/g,'');           // 'dh 6607' == 'DH-6607' == 'DH6607'
+const num=v=>{if(typeof v==='number')return isFinite(v)?v:0;const n=parseFloat(String(v==null?'':v).replace(/[,\s$]/g,''));return isFinite(n)?n:0};
+const r2=n=>Math.round(n*100)/100;
+const fmt=n=>n==null?'–':String(r2(n));
+const sg=d=>d==null?'–':(d>0?'+':'')+fmt(d);
+const cls=d=>d==null?'':d<0?'neg':d>0?'pos':'zero';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const hasLib=n=>typeof window[n]!=='undefined';
 
-const _SV = SV;
-SV = function(k,v){
-  _SV(k,v);
-  if(k==='inv_cat') roomRef.child('cat').set(v);
-  if(k==='inv_cnt') roomRef.child('cnt').set(v);
-};
+let toastT=null;
+function toast(t,err){const e=$('toast');e.textContent=t;e.className=err?'err':'';e.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>e.style.display='none',err?4500:2200)}
+function banner(html){const b=$('banner');b.innerHTML=html+'<br><button class="sec" onclick="this.parentNode.style.display=\'none\'">Cerrar aviso</button>';b.style.display='block'}
+window.addEventListener('error',e=>{try{toast('Error: '+(e.message||e),true)}catch(_){}});
+window.addEventListener('unhandledrejection',e=>{try{toast('Error: '+((e.reason&&e.reason.message)||e.reason),true)}catch(_){}});
 
-roomRef.on('value', snap => {
-  const data = snap.val() || {};
-  if(data.cat && JSON.stringify(data.cat) !== JSON.stringify(cat)){
-    cat = data.cat;
-    if(typeof catInfo === 'function') catInfo();
-  }
-  if(data.cnt && JSON.stringify(data.cnt) !== JSON.stringify(cnt)){
-    cnt = data.cnt;
-    if(typeof renderList === 'function') renderList();
-    if(typeof renderDif === 'function') renderDif();
-  }
-});
+/* ============ almacenamiento robusto ============ */
+const K_CAT='inv3_cat',K_CNT='inv3_cnt',OLD_CAT='inv_cat',OLD_CNT='inv_cnt';
+const mem={};let storageOK=true;
+function sget(k){try{return localStorage.getItem(k)}catch(e){storageOK=false;return mem[k]!=null?mem[k]:null}}
+function sset(k,v){mem[k]=v;try{localStorage.setItem(k,v);return true}catch(e){storageOK=false;if(!warned){warned=true;banner('⚠️ Este navegador no permite guardar datos (¿modo privado o sin espacio?). Use <b>Exportar respaldo</b> para no perder el conteo.')}return false}}
+function sdel(k){delete mem[k];try{localStorage.removeItem(k)}catch(e){}}
 
-function changeRoom(){
-  const n = prompt('Nuevo código de sala:', room);
-  if(n){ localStorage.setItem('room', n.toUpperCase().replace(/[^A-Z0-9\-]/g,'')); location.reload(); }
+let cat=[],idx=new Map(),cnt={},cur=null,warned=false;
+
+function cleanCat(a){const out=[],seen=new Set();if(!Array.isArray(a))return out;
+ for(const it of a){if(!it||typeof it!=='object')continue;const c=String(it.c==null?'':it.c).trim(),k=key(c);if(!k||seen.has(k))continue;seen.add(k);out.push({c,d:String(it.d==null?'':it.d).trim(),e:num(it.e)})}return out}
+function cleanCnt(o){const out={};if(!o||typeof o!=='object'||Array.isArray(o))return out;
+ for(const v of Object.values(o)){if(!v||typeof v!=='object')continue;const c=String(v.c==null?'':v.c).trim(),k=key(c);if(!k)continue;const q=num(v.q);
+  if(out[k])out[k].q=r2(out[k].q+q);else out[k]={c,q:r2(q),t:num(v.t)}}return out}
+function rebuild(){idx=new Map();for(const p of cat){p._k=key(p.c);p._s=norm(p.c+' '+p.d)+' '+p._k;idx.set(p._k,p)}}
+function saveCat(){return sset(K_CAT,JSON.stringify(cat.map(p=>({c:p.c,d:p.d,e:p.e}))))}
+function saveCnt(){return sset(K_CNT,JSON.stringify(cnt))}
+function readJSON(k,oldK,shape){let raw=sget(k),from=k;if(raw==null&&oldK){raw=sget(oldK);from=oldK}
+ if(raw==null)return{v:null};
+ try{const v=JSON.parse(raw);if(!shape(v))throw new Error('forma');return{v}}
+ catch(e){sset('inv3_dañado_'+from,raw);return{bad:true}}}
+function loadAll(){
+ const a=readJSON(K_CAT,OLD_CAT,Array.isArray),b=readJSON(K_CNT,OLD_CNT,v=>v&&typeof v==='object'&&!Array.isArray(v));
+ cat=a.v?cleanCat(a.v):[];cnt=b.v?cleanCnt(b.v):{};rebuild();
+ if(a.bad||b.bad)banner('⚠️ Se detectaron datos dañados en el almacenamiento y se iniciaron vacíos'+(a.bad&&b.bad?'':' (solo la parte dañada)')+'. Se guardó una copia del contenido dañado. Si tiene un <b>respaldo</b>, impórtelo en la pestaña Catálogo.');
+ if(!a.bad&&!b.bad&&((a.v&&!sget(K_CAT))||(b.v&&!sget(K_CNT)))){saveCat();saveCnt()} // migra datos de versiones anteriores
 }
+const findCode=c=>idx.get(key(c));
 
-const LS=k=>JSON.parse(localStorage.getItem(k)||'null'),SV=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-let cat=LS('inv_cat')||[],cnt=LS('inv_cnt')||{},cur=null,raw=null,scanner=null;
-const $=id=>document.getElementById(id),norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
-const esc=s=>String(s).replace(/[&<>\"]/g,c=>({'&':'&','<':'<','>':'>','\"':'"'}[c]));
-const findCode=c=>cat.find(p=>norm(p.c)===norm(c))||cat.find(p=>key(p.c)===key(c));
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.s));
-function show(s){document.querySelectorAll('section,nav button').forEach(e=>e.classList.remove('on'));$(s).classList.add('on');document.querySelector(`nav [data-s=${s}]`).classList.add('on');if(s=='sLista')renderList();if(s=='sCat')catInfo();if(s=='sDif')renderDif();if(s!='sConteo')ocrClose()}
-function toast(t){$('toast').textContent=t;$('toast').style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').style.display='none',2500)}
-function parseRows(rows){raw=rows.filter(r=>r.some(v=>v!==''&&v!=null));const h=raw[0].map(String);
- ['mCod','mDesc','mExi'].forEach((id,i)=>{const re=[/c[oó]d|clave|sku/i,/desc|nombre/i,/exist|stock|cant/i][i];$(id).innerHTML=h.map((x,j)=>`<option value=${j}>${esc(x)}</option>`).join('');const k=h.findIndex(x=>re.test(x));$(id).value=k>=0?k:i});$('mapBox').style.display='block'}
-function readFile(f,cb){const r=new FileReader();r.onload=e=>{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});cb(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}))};r.readAsArrayBuffer(f)}
-$('catFile').onchange=e=>e.target.files[0]&&readFile(e.target.files[0],parseRows);
-function applyMap(ic,id,ie){cat=raw.slice(1).map(r=>({c:String(r[ic]).trim(),d:String(r[id]).trim(),e:Number(String(r[ie]).replace(/,/g,''))||0})).filter(p=>p.c);SV('inv_cat',cat);catInfo();return cat.length}
-$('bMap').onclick=()=>{toast(applyMap(+$('mCod').value,+$('mDesc').value,+$('mExi').value)+' productos importados');$('mapBox').style.display='none'};
-function catInfo(){$('catInfo').innerHTML=`<b>${cat.length}</b> productos en catálogo`+cat.slice(0,5).map(p=>`<div><small>${esc(p.c)} — ${esc(p.d)} (${p.e})</small></div>`).join('')}
-function search(q){q=norm(q);if(!q)return[];const ws=q.split(/\s+/);return cat.filter(p=>{const s=norm(p.c+' '+p.d);return ws.every(w=>s.includes(w))||key(p.c).includes(key(q))}).sort((a,b)=>(norm(b.c).startsWith(q))-(norm(a.c).startsWith(q))).slice(0,15)}
-$('busca').oninput=()=>{const q=$('busca').value,r=search(q);let h=r.map(p=>`<div data-c="${esc(p.c)}"><b>${esc(p.c)}</b> ${esc(p.d)}</div>`).join('');if(q.trim()&&!findCode(q))h+=`<div data-new="1">➕ Usar "<b>${esc(q.trim())}</b>" (no está en catálogo)</div>`;$('sug').innerHTML=h};
-$('sug').onclick=e=>{const d=e.target.closest('div');if(!d)return;select(d.dataset.new?$('busca').value.trim():d.dataset.c)};
-$('bMan').onclick=()=>{$('busca').focus()};
-function select(code){code=String(code).trim();if(!code)return;const p=findCode(code);cur=p?{...p}:{c:code,d:'(No está en catálogo)',e:null,nuevo:1};
- $('pCod').textContent=cur.c;$('pDesc').textContent=cur.d;$('pInfo').textContent=(cnt[norm(cur.c)]?`Ya contado: ${cnt[norm(cur.c)].q}`:'');$('qty').value=1;upStats();$('prodBox').style.display='block';$('sug').innerHTML='';$('busca').value='';$('ocrTok').innerHTML='';$('prodBox').scrollIntoView({behavior:'smooth'})}
-$('qMas').onclick=()=>{$('qty').value=(+$('qty').value||0)+1;upStats()};$('qMenos').onclick=()=>{$('qty').value=Math.max(0,(+$('qty').value||0)-1);upStats()};$('qty').oninput=upStats;
-const cls=d=>d==null?'':d<0?'neg':d>0?'pos':'zero',sg=d=>d==null?'—':(d>0?'+':'')+d;
-function upStats(){if(!cur)return;const l=cnt[norm(cur.c)]?cnt[norm(cur.c)].q:0,q=+$('qty').value||0,e=cur.e;const set=(id,v,d)=>{$(id).textContent=v;$(id).className=d===undefined?'':cls(d)};
- set('stSis',e??'—');set('stLle',l);const da=e==null?null:l-e,dn=e==null?null:l+q-e;set('stDif',sg(da),da);set('stNew',sg(dn),dn)}
-function addCount(code,q){const k=norm(code),p=findCode(code);if(!cnt[k])cnt[k]={c:p?p.c:String(code).trim(),q:0,t:0};cnt[k].q+=q;cnt[k].t=Date.now();SV('inv_cnt',cnt)}
-$('bAdd').onclick=()=>{const q=+$('qty').value;if(!cur||isNaN(q))return;addCount(cur.c,q);toast(`✔ ${cur.c}: +${q} (total ${cnt[norm(cur.c)].q})`);$('prodBox').style.display='none';cur=null};
-$('bScan').onclick=async()=>{ocrClose();$('scanBox').style.display='block';scanner=scanner||new Html5Qrcode('reader');try{await scanner.start({facingMode:'environment'},{fps:10,qrbox:250},t=>{stopScan();select(t)})}catch(e){toast('Cámara: '+e)}};
-async function stopScan(){try{await scanner.stop()}catch(e){}$('scanBox').style.display='none'}$('bStop').onclick=stopScan;
-function lev(a,b){const m=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=m[0];m[0]=i;for(let j=1;j<=b.length;j++){const t=m[j];m[j]=Math.min(m[j]+1,m[j-1]+1,p+(a[i-1]==b[j-1]?0:1));p=t}}return m[b.length]}
-const key=s=>norm(s).replace(/[\s\-\/\.]+/g,'');
+/* ============ navegación ============ */
+let tab='contar';
+function show(t){tab=t;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+ if(t!=='contar')setMode(null);
+ if(t==='lista')renderList();if(t==='dif')renderDif();if(t==='cat')renderCat();window.scrollTo(0,0)}
+$('nav').onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.t)};
+
+/* ============ búsqueda manual ============ */
+function search(q){const kq=key(q),ws=norm(q).split(/\s+/).filter(Boolean);if(!kq)return[];const out=[];
+ for(const p of cat){let sc=-1;if(p._k===kq)sc=0;else if(p._k.startsWith(kq))sc=1;else if(ws.every(w=>p._s.includes(w)))sc=2;else if(kq.length>=2&&p._k.includes(kq))sc=3;if(sc>=0)out.push([sc,p])}
+ out.sort((a,b)=>a[0]-b[0]);return out.slice(0,20).map(x=>x[1])}
+$('busca').oninput=()=>{const q=$('busca').value,rs=search(q);let h=rs.map(p=>`<div data-c="${esc(p.c)}"><b>${esc(p.c)}</b> ${esc(p.d)}</div>`).join('');
+ if(key(q)&&!findCode(q))h+=`<div data-c="${esc(q.trim())}">➕ Usar «<b>${esc(q.trim())}</b>» (no está en catálogo)</div>`;$('sug').innerHTML=h};
+$('busca').onkeydown=e=>{if(e.key==='Enter'){const f=$('sug').querySelector('div');if(f)select(f.dataset.c)}};
+$('sug').onclick=e=>{const d=e.target.closest('div[data-c]');if(d)select(d.dataset.c)};
+$('bMan').onclick=()=>{setMode(null);$('busca').focus()};
+
+/* ============ producto seleccionado ============ */
+let coolUntil=0;
+function select(code){const raw=String(code==null?'':code).trim(),k=key(raw);if(!k)return;
+ const p=idx.get(k);cur=p?{c:p.c,d:p.d,e:p.e,k,inCat:true}:{c:(cnt[k]&&cnt[k].c)||raw,d:'(No está en el catálogo)',e:null,k,inCat:false};
+ $('pCod').textContent=cur.c;$('pDesc').textContent=cur.d;$('qty').value=1;$('prod').style.display='block';$('sug').innerHTML='';$('busca').value='';updStats();
+ $('prod').scrollIntoView({behavior:'smooth',block:'start'})}
+function clearSel(){cur=null;$('prod').style.display='none';coolUntil=Date.now()+2500}
+function updStats(){if(!cur)return;const l=cnt[cur.k]?cnt[cur.k].q:0,q=num($('qty').value),e=cur.e;
+ const set=(id,t,c)=>{$(id).textContent=t;$(id).className=c||''};
+ set('sSis',cur.inCat?fmt(e):'N/A');set('sLle',fmt(l));
+ const d=cur.inCat?r2(l-e):null,n=cur.inCat?r2(l+q-e):null;set('sDif',cur.inCat?sg(d):'–',cls(d));set('sNew',cur.inCat?sg(n):fmt(l+q),cls(n))}
+$('qMas').onclick=()=>{$('qty').value=r2(num($('qty').value)+1);updStats()};
+$('qMenos').onclick=()=>{$('qty').value=Math.max(0,r2(num($('qty').value)-1));updStats()};
+$('qty').oninput=updStats;$('qty').onfocus=()=>$('qty').select();
+$('bCancel').onclick=clearSel;
+$('bAdd').onclick=()=>{if(!cur)return;const q=num($('qty').value);if(!q){toast('La cantidad es 0',true);return}
+ const o=cnt[cur.k];cnt[cur.k]={c:o?o.c:cur.c,q:r2((o?o.q:0)+q),t:Date.now()};saveCnt();
+ toast(`✔ ${cur.c}: ${q>0?'+':''}${fmt(q)}  (total ${fmt(cnt[cur.k].q)})`);clearSel();$('chips').innerHTML='';$('ocrMsg').textContent=''};
+
+/* ============ modo cámara ============ */
+let mode=null;
+async function setMode(m){if(m===mode)return;const old=mode;mode=null;
+ if(old==='ocr')ocrStop();if(old==='qr')await qrStop();
+ $('bOcr').classList.remove('act');$('bQr').classList.remove('act');$('ocrCard').style.display='none';$('qrCard').style.display='none';
+ if(m==='ocr'){mode='ocr';$('bOcr').classList.add('act');$('ocrCard').style.display='block';await ocrStart()}
+ else if(m==='qr'){mode='qr';$('bQr').classList.add('act');$('qrCard').style.display='block';await qrStart()}}
+$('bOcr').onclick=()=>setMode(mode==='ocr'?null:'ocr');$('bQr').onclick=()=>setMode(mode==='qr'?null:'qr');
+$('bOcrX').onclick=()=>setMode(null);$('bQrX').onclick=()=>setMode(null);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode)setMode(null)});
+
+/* ---- QR / códigos de barras ---- */
+let qr=null;
+async function qrStart(){
+ if(!hasLib('Html5Qrcode')){toast('No cargó el lector QR (¿sin internet?)',true);return setMode(null)}
+ try{qr=new Html5Qrcode('reader');
+  await qr.start({facingMode:'environment'},{fps:10,qrbox:(w,h)=>{const s=Math.floor(Math.min(w,h)*.7);return{width:s,height:s}}},
+   txt=>{if(cur||Date.now()<coolUntil)return;coolUntil=Date.now()+2500;select(txt)},()=>{})}
+ catch(e){toast('No se pudo abrir la cámara: '+(e&&e.message||e),true);qr=null;setMode(null)}}
+async function qrStop(){const q=qr;qr=null;if(q){try{await q.stop()}catch(e){}try{q.clear()}catch(e){}}}
+
+/* ---- OCR ---- */
+const WL='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/.';
+function lev(a,b){const m=[];for(let j=0;j<=b.length;j++)m[j]=j;for(let i=1;i<=a.length;i++){let p=m[0];m[0]=i;for(let j=1;j<=b.length;j++){const t=m[j];m[j]=Math.min(m[j]+1,m[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t}}return m[b.length]}
 const fuzzy=s=>s.replace(/O/g,'0').replace(/[IL|]/g,'1').replace(/S/g,'5').replace(/B/g,'8').replace(/Z/g,'2').replace(/G/g,'6');
-function tokens(text){const out=new Set();norm(text).split(/\n/).forEach(line=>{const parts=line.split(/[^A-Z0-9\-\/\.]+/).map(t=>t.replace(/^[\-\/\.]+|[\-\/\.]+$/g,'')).filter(Boolean);
- const add=t=>{const k=key(t);if(k.length>=3&&k.length<=20&&/\d/.test(k))out.add(k)};
- parts.forEach((t,i)=>{add(t);if(i+1<parts.length)add(t+parts[i+1])})});return[...out]}
-function ocrMatches(text){const toks=tokens(text),res=[];
- cat.forEach(p=>{const c=key(p.c),fc=fuzzy(c);let best=99;toks.forEach(t=>{const d=t===c?0:Math.min(lev(fuzzy(t),fc),99)+(fuzzy(t)===fc?0.5:0);if(d<best)best=d});if(best<=Math.max(2,Math.floor(c.length/3)))res.push({p,d:best})});
- return{toks,res:res.sort((a,b)=>a.d-b.d).slice(0,8)}}
-function prep(src,sw,sh,crop,rot){const [cx,cy,cw,ch]=crop||[0,0,sw,sh];let sc=2;if(cw*sc>2400)sc=2400/cw;
- const c=document.createElement('canvas'),W=Math.round(cw*sc),H=Math.round(ch*sc);c.width=W;c.height=H;const g=c.getContext('2d');
- if(rot){g.translate(W,H);g.rotate(Math.PI)}g.imageSmoothingQuality='high';g.drawImage(src,cx,cy,cw,ch,0,0,W,H);
+/* tokens: todos los candidatos (≥3) y los "mostrables" (con algún dígito) */
+function tokens(text){const all=new Set(),shown=new Set();
+ String(text||'').toUpperCase().split(/\n+/).forEach(line=>{
+  const parts=line.split(/[^A-Z0-9\-\/\.]+/).map(t=>t.replace(/^[\-\/\.]+|[\-\/\.]+$/g,'')).filter(Boolean);
+  const add=t=>{const k=key(t);if(k.length>=3&&k.length<=24){all.add(k);if(/\d/.test(k))shown.add(k)}};
+  parts.forEach((t,i)=>{add(t);if(i+1<parts.length)add(t+parts[i+1])})});
+ return{all:[...all],shown:[...shown]}}
+function ocrMatches(text){const tk=tokens(text),res=[];
+ for(const p of cat){const c=p._k,fc=fuzzy(c),max=c.length>=5?Math.floor(c.length/4):0;let best=99;
+  for(const t of tk.all){if(Math.abs(t.length-c.length)>max+0)continue;let d;if(t===c)d=0;else{const ft=fuzzy(t);d=ft===fc?0.5:lev(ft,fc)}if(d<best)best=d;if(!best)break}
+  if(best<=Math.max(max,0.5))res.push({p,d:best})}
+ res.sort((a,b)=>a.d-b.d);return{toks:tk.shown,res:res.slice(0,8)}}
+/* preprocesado: recorte → escala 2x → gris → contraste → binarizado (Otsu, auto-invertido) */
+function prep(src,sw,sh,crop,rot,bin){const[cx,cy,cw,ch]=crop||[0,0,sw,sh];let sc=2;if(cw*sc>2400)sc=2400/cw;
+ const W=Math.max(1,Math.round(cw*sc)),H=Math.max(1,Math.round(ch*sc)),c=document.createElement('canvas');c.width=W;c.height=H;
+ const g=c.getContext('2d',{willReadFrequently:true});if(rot){g.translate(W,H);g.rotate(Math.PI)}g.imageSmoothingQuality='high';g.drawImage(src,cx,cy,cw,ch,0,0,W,H);
  const im=g.getImageData(0,0,W,H),d=im.data,n=W*H,gr=new Uint8Array(n);let mn=255,mx=0;
  for(let i=0;i<n;i++){const v=(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114)|0;gr[i]=v;if(v<mn)mn=v;if(v>mx)mx=v}
- const hist=new Array(256).fill(0),r=Math.max(1,mx-mn);for(let i=0;i<n;i++){gr[i]=((gr[i]-mn)*255/r)|0;hist[gr[i]]++}
- let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sB=0,wB=0,th=128,bv=0;for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*hist[t];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)**2;if(v>bv){bv=v;th=t}}
- let dark=0;for(let i=0;i<n;i++)if(gr[i]<=th)dark++;const inv=dark>n/2;
- for(let i=0;i<n;i++){let v=gr[i]>th?255:0;if(inv)v=255-v;d[i*4]=d[i*4+1]=d[i*4+2]=v}g.putImageData(im,0,0);return c}
-let worker=null;async function getWorker(){if(!worker){worker=await Tesseract.createWorker('eng');await worker.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/.',preserve_interword_spaces:'1'})}return worker}
-async function rec(c,psm){const w=await getWorker();await w.setParameters({tessedit_pageseg_mode:String(psm)});const{data}=await w.recognize(c);return data.text}
-async function ocrPipeline(src,sw,sh,crop,full){let all='';
- const rots = full ? [0,1] : [0];
- const psms = full ? [7,6,11,13] : [7];
- for(const rot of rots){
-  const c=prep(src,sw,sh,crop,rot);
-  for(const psm of psms){
-   const t=await rec(c,psm);all+='\n'+t;
-   const m=ocrMatches(all);
-   if(m.res.some(r=>r.d===0) || (full && m.res.length && m.res[0].d<=1)) return{text:all,...m};
-  }
- }
+ const hist=new Array(256).fill(0),rg=Math.max(1,mx-mn);for(let i=0;i<n;i++){gr[i]=((gr[i]-mn)*255/rg)|0;hist[gr[i]]++}
+ let th=128,inv=false;
+ if(bin){let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sB=0,wB=0,bv=-1;for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*hist[t];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>bv){bv=v;th=t}}
+  let dark=0;for(let i=0;i<=th;i++)dark+=hist[i];inv=dark>n/2}
+ for(let i=0;i<n;i++){let v=gr[i];if(bin){v=gr[i]>th?255:0;if(inv)v=255-v}
+  d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255}
+ g.putImageData(im,0,0);return c}
+let workerP=null;
+function getWorker(){if(!workerP){if(!hasLib('Tesseract'))return Promise.reject(new Error('No cargó el OCR (¿sin internet?)'));
+ workerP=Tesseract.createWorker('eng').then(async w=>{await w.setParameters({tessedit_char_whitelist:WL,preserve_interword_spaces:'1'});return w}).catch(e=>{workerP=null;throw e})}return workerP}
+async function rec(c,psm){const w=await getWorker();await w.setParameters({tessedit_pageseg_mode:String(psm)});const r=await w.recognize(c);return r.data.text||''}
+/* full: psm 7→6→11, binarizado y gris, y reintento girado 180° */
+async function ocrPipeline(src,sw,sh,crops,full){let all='';
+ for(const crop of crops){
+  for(const rot of full?[0,1]:[0]){
+   for(const bin of full?[true,false]:[true]){const c=prep(src,sw,sh,crop,rot,bin);
+    for(const psm of full?[7,6,11]:[7]){all+='\n'+await rec(c,psm);const m=ocrMatches(all);if(m.res.some(r=>r.d===0)||(!full&&m.toks.length))return{text:all,...m}}}
+   if(ocrMatches(all).res.length)break}
+  if(ocrMatches(all).res.length)break}
  return{text:all,...ocrMatches(all)}}
-function showOcr(r,auto){if(auto&&!r.toks.length)return;$('ocrMsg').innerHTML=r.res.length?'<b>Coincidencias:</b> toque para confirmar':(r.toks.length?'Sin coincidencias en catálogo. Códigos leídos:':'No se detectó ningún código. Acerque la cámara / mejore la luz.');
- $('ocrTok').innerHTML=r.res.map(x=>`<span class="tok ${x.d===0?'exact':''}" data-c="${esc(x.p.c)}">${x.d===0?'✔ ':'≈ '}${esc(x.p.c)} <small>${esc(x.p.d)}</small></span>`).join('')+(r.toks.length?'<br><small>Leído:</small><br>'+r.toks.map(t=>`<span class=tok style="background:#eee" data-c="${esc(t)}">${esc(t)}</span>`).join(''):'')}
-let stream=null,autoOn=true,autoT=null,busy=false;
-function guideCrop(){const v=$('vid'),W=v.videoWidth,H=v.videoHeight;return[W*.08,H*.30,W*.84,H*.40].map(Math.round)}
-async function ocrOpen(){$('ocrBox').style.display='block';$('ocrMsg').textContent='';$('ocrTok').innerHTML='';getWorker().catch(()=>{});
- try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});$('vid').srcObject=stream;$('camWrap').style.display='block';
-  try{const tr=stream.getVideoTracks()[0],cp=tr.getCapabilities?tr.getCapabilities():{};if(cp.focusMode&&cp.focusMode.includes('continuous'))tr.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
-  startAuto()}catch(e){$('camWrap').style.display='none';$('ocrMsg').textContent='No se pudo abrir la cámara en vivo; use "subir/tomar foto".'}}
-function ocrClose(){clearInterval(autoT);autoT=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$('ocrBox').style.display='none'}
-async function grab(full){const v=$('vid');if(busy||!v.videoWidth)return;busy=true;try{const r=await ocrPipeline(v,v.videoWidth,v.videoHeight,guideCrop(),full);showOcr(r,!full)}catch(e){$('ocrMsg').textContent='Error OCR: '+e}busy=false}
-function startAuto(){clearInterval(autoT);if(autoOn)autoT=setInterval(()=>grab(false),2000)}
-$('bOcr').onclick=()=>{stopScan();ocrOpen()};$('bOcrStop').onclick=ocrClose;
-$('bCap').onclick=async()=>{$('ocrMsg').textContent='Leyendo…';while(busy)await new Promise(r=>setTimeout(r,100));grab(true)};
-$('bAuto').onclick=()=>{autoOn=!autoOn;$('bAuto').textContent='Auto: '+(autoOn?'ON':'OFF');startAuto()};
-async function ocrImageFile(f){const img=await createImageBitmap(f);return ocrPipeline(img,img.width,img.height,null,true)}
-$('ocrFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('ocrMsg').textContent='Leyendo texto…';busy=true;try{showOcr(await ocrImageFile(f))}catch(err){$('ocrMsg').textContent='Error OCR: '+err}busy=false;e.target.value=''};
-$('ocrTok').onclick=e=>{const s=e.target.closest('.tok');if(s){select(s.dataset.c)}};
-let dF='todos';$('dFil').onclick=e=>{const b=e.target.closest('button');if(!b)return;dF=b.dataset.f;[...$('dFil').children].forEach(x=>x.classList.toggle('on',x==b));renderDif()};$('dBus').oninput=()=>renderDif();
-function difRows(){const rows=cat.map(p=>{const k=norm(p.c),f=cnt[k]?cnt[k].q:null;return{c:p.c,d:p.d,s:p.e,f,dif:(f??0)-p.e}});
- Object.values(cnt).filter(x=>!findCode(x.c)).forEach(x=>rows.push({c:x.c,d:'NO EN CATÁLOGO',s:null,f:x.q,dif:x.q}));return rows}
-function renderDif(){const all=difRows(),q=norm($('dBus').value),ws=q.split(/\s+/).filter(Boolean);
- const cont=all.filter(r=>r.f!=null);$('dTot').innerHTML=`<div><small>Contados</small><b>${cont.filter(r=>r.s!=null).length}/${cat.length}</b></div><div><small>Piezas</small><b>${cont.reduce((a,r)=>a+r.f,0)}</b></div><div><small>Con dif.</small><b class=neg>${all.filter(r=>r.dif).length}</b></div><div><small>Sin contar</small><b>${all.filter(r=>r.f==null).length}</b></div>`;
- const rs=all.filter(r=>dF=='todos'||(dF=='dif'&&r.dif)||(dF=='sin'&&r.f==null)||(dF=='con'&&r.f!=null)).filter(r=>{const t=norm(r.c+' '+r.d);return ws.every(w=>t.includes(w))});
- $('dTab').innerHTML='<tr><th>Producto</th><th>Sistema</th><th>Físico</th><th>Dif.</th></tr>'+rs.map(r=>`<tr data-c="${esc(r.c)}"><td><b>${esc(r.c)}</b><br><small>${esc(r.d)}</small></td><td>${r.s??'—'}</td><td>${r.f??'<small>sin contar</small>'}</td><td class=${cls(r.dif)}><b>${sg(r.dif)}</b></td></tr>`).join('')}
-$('dTab').onclick=e=>{const t=e.target.closest('tr[data-c]');if(t){show('sConteo');select(t.dataset.c)}};
-function renderList(){const it=Object.values(cnt).sort((a,b)=>b.t-a.t);$('lInfo').textContent=`${it.length} códigos, ${it.reduce((s,x)=>s+x.q,0)} piezas`;
- $('lista').innerHTML=it.map(x=>{const p=findCode(x.c);return`<div class=item><div class=d><b>${esc(x.c)}</b><br><small>${esc(p?p.d:'NO EN CATÁLOGO')}</small></div><input type=number inputmode=numeric value=${x.q} data-k="${esc(norm(x.c))}"><button class="red" data-del="${esc(norm(x.c))}">✕</button></div>`}).join('')||'Sin conteos aún'}
-$('lista').onchange=e=>{const k=e.target.dataset.k;if(k){cnt[k].q=+e.target.value||0;SV('inv_cnt',cnt);renderList()}};
-$('lista').onclick=e=>{const k=e.target.dataset.del;if(k&&confirm('¿Eliminar '+cnt[k].c+'?')){delete cnt[k];SV('inv_cnt',cnt);renderList()}};
-$('bClr').onclick=()=>{if(confirm('¿Borrar TODO el conteo?')){cnt={};SV('inv_cnt',cnt);renderList()}};
-function buildWorkbook(){const H=['Código','Descripción','Existencia sistema','Conteo físico','Diferencia'];
- const a=[H,...cat.map(p=>{const q=cnt[norm(p.c)]?cnt[norm(p.c)].q:0;return[p.c,p.d,p.e,q,q-p.e]})];
- const b=[['Código','Conteo físico'],...Object.values(cnt).filter(x=>!findCode(x.c)).map(x=>[x.c,x.q])];
- const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'Conteo');XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(b),'No en catálogo');return wb}
-$('bExp').onclick=()=>XLSX.writeFile(buildWorkbook(),'conteo_'+new Date().toISOString().slice(0,10)+'.xlsx');
-function genLabels(){const f=norm($('eFil').value),ps=cat.filter(p=>!f||norm(p.c+' '+p.d).includes(f));
- $('labels').innerHTML=ps.map(p=>{const q=qrcode(0,'M');q.addData(p.c);q.make();return`<div class=lab>${q.createSvgTag({cellSize:3,margin:2})}<b>${esc(p.c)}</b>${esc(p.d.slice(0,60))}</div>`}).join('')||'Catálogo vacío'}
-$('bGen').onclick=genLabels;
-catInfo();
-</script></body></html>
+function showOcr(r,auto){
+ if(auto&&!r.toks.length){if(++emptyReads>=2){$('chips').innerHTML='';$('ocrMsg').textContent=''}return}emptyReads=0;
+ const ex=new Set();let h='';
+ for(const x of r.res){if(x.d===0)ex.add(x.p._k);h+=`<div class="chip ${x.d===0?'exact':'near'}" data-c="${esc(x.p.c)}">${x.d===0?'✔ ':'≈ '}${esc(x.p.c)}<small>${esc(x.p.d)}</small></div>`}
+ for(const t of r.toks){if(ex.has(t))continue;h+=`<div class="chip" data-c="${esc(t)}">${esc(t)}<small>no está en catálogo</small></div>`}
+ $('chips').innerHTML=h;
+ $('ocrMsg').textContent=r.res.length?'Toque el código correcto para contarlo:':(r.toks.length?'Sin coincidencia en el catálogo. Códigos leídos:':'No se detectó ningún código. Acerque la cámara, mejore la luz o intente de nuevo.')}
+$('chips').onclick=e=>{const c=e.target.closest('.chip');if(c)select(c.dataset.c)};
+let stream=null,autoOn=true,busy=false,run=0,emptyReads=0;
+const guideCrop=()=>{const v=$('vid'),W=v.videoWidth,H=v.videoHeight;return[W*.1,H*.375,W*.8,H*.25].map(Math.round)};
+async function ocrStart(){const id=++run;$('chips').innerHTML='';$('ocrMsg').textContent='';getWorker().catch(e=>{$('ocrMsg').textContent='OCR: '+e.message});
+ try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('sin getUserMedia (use HTTPS)');
+  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+  if(run!==id||mode!=='ocr'){s.getTracks().forEach(t=>t.stop());return}
+  stream=s;const v=$('vid');v.srcObject=s;try{await v.play()}catch(e){}$('camWrap').style.display='block';
+  try{const tr=s.getVideoTracks()[0],cp=tr.getCapabilities?tr.getCapabilities():{};if(cp.focusMode&&cp.focusMode.includes('continuous'))await tr.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+  autoLoop(id)}
+ catch(e){$('camWrap').style.display='none';$('ocrMsg').textContent='No se pudo abrir la cámara en vivo ('+(e&&e.message||e)+'). Use «Subir / tomar foto».'}}
+function ocrStop(){run++;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}try{$('vid').srcObject=null}catch(e){}}
+async function autoLoop(id){while(run===id){await sleep(1500);if(run!==id)break;if(autoOn&&!cur&&!busy&&!document.hidden)await grab(false,id)}}
+async function grab(full,id){const v=$('vid');if(busy||!v.videoWidth)return;busy=true;
+ try{const r=await ocrPipeline(v,v.videoWidth,v.videoHeight,[guideCrop()],full);if(id===undefined||run===id)showOcr(r,!full)}
+ catch(e){$('ocrMsg').textContent='Error OCR: '+(e&&e.message||e)}finally{busy=false}}
+$('bCap').onclick=async()=>{$('ocrMsg').textContent='Leyendo…';while(busy)await sleep(100);await grab(true)};
+$('bAuto').onclick=()=>{autoOn=!autoOn;$('bAuto').textContent='Auto: '+(autoOn?'ON':'OFF')};
+$('ocrFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;$('ocrMsg').textContent='Leyendo foto…';while(busy)await sleep(100);busy=true;
+ try{const img=await createImageBitmap(f);const W=img.width,H=img.height;
+  showOcr(await ocrPipeline(img,W,H,[null,[Math.round(W*.1),Math.round(H*.3),Math.round(W*.8),Math.round(H*.4)]],true))}
+ catch(err){$('ocrMsg').textContent='Error OCR: '+(err&&err.message||err)}finally{busy=false}};
+
+/* ============ lista ============ */
+function renderList(){const it=Object.entries(cnt).sort((a,b)=>b[1].t-a[1].t);
+ $('lInfo').textContent=`${it.length} códigos · ${fmt(r2(it.reduce((s,x)=>s+x[1].q,0)))} piezas`;
+ $('lista').innerHTML=it.map(([k,x])=>{const p=idx.get(k);return`<div class="item"><div class="d"><b>${esc(x.c)}</b><br><small>${esc(p?p.d:'NO ESTÁ EN CATÁLOGO')}${p?' · sistema '+fmt(p.e):''}</small></div><input type="number" inputmode="numeric" value="${esc(x.q)}" data-k="${esc(k)}" aria-label="cantidad"><button class="red" data-del="${esc(k)}" aria-label="borrar">✕</button></div>`}).join('')||'<span class="muted">Aún no hay conteos.</span>'}
+$('lista').onchange=e=>{const k=e.target.dataset&&e.target.dataset.k;if(k&&cnt[k]){cnt[k].q=r2(num(e.target.value));cnt[k].t=Date.now();saveCnt();renderList()}};
+$('lista').onclick=e=>{const b=e.target.closest('[data-del]');if(!b)return;const k=b.dataset.del;if(cnt[k]&&confirm('¿Quitar '+cnt[k].c+' del conteo?')){delete cnt[k];saveCnt();renderList()}};
+$('bClr').onclick=()=>{if(Object.keys(cnt).length&&confirm('¿Borrar TODO el conteo? (el catálogo se conserva)')){cnt={};saveCnt();renderList()}};
+
+/* ============ diferencias ============ */
+let dF='todos';const DLIM=400;
+function difRows(){const rows=cat.map(p=>{const q=cnt[p._k],f=q?q.q:null;return{k:p._k,c:p.c,d:p.d,s:p.e,f,dif:r2((f==null?0:f)-p.e)}});
+ for(const [k,x] of Object.entries(cnt))if(!idx.has(k))rows.push({k,c:x.c,d:'NO ESTÁ EN CATÁLOGO',s:null,f:x.q,dif:x.q});return rows}
+function renderDif(){const all=difRows(),ws=norm($('dBus').value).split(/\s+/).filter(Boolean),kq=key($('dBus').value);
+ const cont=all.filter(r=>r.f!=null),con=cont.filter(r=>r.dif!==0);
+ $('dTot').innerHTML=`<div><small>Contados</small><b>${cont.length}</b></div><div><small>Piezas</small><b>${fmt(r2(cont.reduce((s,r)=>s+r.f,0)))}</b></div><div><small>Con dif.</small><b class="${con.length?'neg':'zero'}">${con.length}</b></div><div><small>Sin contar</small><b>${all.length-cont.length}</b></div>`;
+ const rs=all.filter(r=>dF==='todos'||(dF==='dif'&&r.f!=null&&r.dif!==0)||(dF==='sin'&&r.f==null)||(dF==='con'&&r.f!=null)).filter(r=>{const t=norm(r.c+' '+r.d)+' '+key(r.c);return ws.every(w=>t.includes(w))||(kq&&t.includes(kq))});
+ $('dTab').innerHTML='<tr><th>Producto</th><th>Sistema</th><th>Físico</th><th>Dif.</th></tr>'+rs.slice(0,DLIM).map(r=>`<tr data-k="${esc(r.k)}"><td><b>${esc(r.c)}</b><br><small>${esc(r.d)}</small></td><td>${fmt(r.s)}</td><td>${r.f==null?'<small>sin contar</small>':'<b>'+fmt(r.f)+'</b>'}</td><td class="${r.f==null?'':cls(r.dif)}"><b>${r.f==null?'':sg(r.dif)}</b></td></tr>`).join('');
+ $('dMore').textContent=rs.length>DLIM?`Mostrando ${DLIM} de ${rs.length}; use la búsqueda o los filtros.`:(rs.length?'':'Sin resultados.')}
+$('dFil').onclick=e=>{const b=e.target.closest('button');if(!b)return;dF=b.dataset.f;[...$('dFil').children].forEach(x=>x.classList.toggle('on',x===b));renderDif()};
+$('dBus').oninput=renderDif;
+$('dTab').onclick=e=>{const t=e.target.closest('tr[data-k]');if(!t)return;const p=idx.get(t.dataset.k),x=cnt[t.dataset.k];show('contar');select(p?p.c:(x?x.c:t.dataset.k))};
+
+/* ============ catálogo: importar ============ */
+let raw=null;
+async function readTable(f){if(!hasLib('XLSX'))throw new Error('No cargó la librería de Excel (¿sin internet?)');
+ const buf=await f.arrayBuffer();let wb;
+ if(/\.(csv|txt)$/i.test(f.name)||f.type==='text/csv'){let t=new TextDecoder('utf-8').decode(buf);if(t.includes('\uFFFD'))t=new TextDecoder('windows-1252').decode(buf);wb=XLSX.read(t.replace(/^\uFEFF/,''),{type:'string',raw:true})}
+ else wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+ for(const n of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:true}).filter(r=>Array.isArray(r)&&r.some(v=>String(v).trim()!==''));if(rows.length)return rows}
+ return[]}
+$('catFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ try{raw=await readTable(f);if(raw.length<1)throw new Error('El archivo está vacío');setupMap()}catch(err){toast('No se pudo leer: '+(err&&err.message||err),true)}};
+const colName=j=>{let s='',n=j+1;while(n>0){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26)}return s};
+function setupMap(){const ncol=Math.max(...raw.slice(0,50).map(r=>r.length)),hdr=raw[0].map(v=>String(v));
+ const opts=Array.from({length:ncol},(_,j)=>`<option value="${j}">${colName(j)}${$('mHdr').checked&&hdr[j]?' – '+esc(hdr[j].slice(0,30)):''}</option>`).join('');
+ ['mCod','mDesc','mExi'].forEach(id=>$(id).innerHTML=opts);
+ const g=re=>hdr.findIndex(h=>re.test(h));let a=g(/c[oó]d|clave|sku|art[ií]c|n[uú]m.*parte|parte/i),b=g(/desc|nombre|producto|concepto/i),c=g(/exist|stock|cant|inventario|saldo/i);
+ if(a<0)a=0;if(b<0||b===a)b=ncol>1?(a===1?0:1):0;if(c<0||c===a||c===b)c=[0,1,2,3].find(x=>x<ncol&&x!==a&&x!==b);if(c==null)c=a;
+ $('mCod').value=a;$('mDesc').value=b;$('mExi').value=c;$('mapBox').style.display='block';prevMap()}
+function prevMap(){if(!raw)return;const s=$('mHdr').checked?1:0,a=+$('mCod').value,b=+$('mDesc').value,c=+$('mExi').value;
+ $('mPrev').innerHTML='<table><tr><th>Código</th><th>Descripción</th><th>Existencia</th></tr>'+raw.slice(s,s+3).map(r=>`<tr><td>${esc(r[a])}</td><td style="text-align:left">${esc(r[b])}</td><td>${esc(r[c])}</td></tr>`).join('')+'</table><small>'+Math.max(0,raw.length-s)+' filas</small>'}
+['mCod','mDesc','mExi'].forEach(id=>$(id).onchange=prevMap);$('mHdr').onchange=()=>{if(raw){const v=[$('mCod').value,$('mDesc').value,$('mExi').value];setupMap();['mCod','mDesc','mExi'].forEach((id,i)=>$(id).value=v[i]);prevMap()}};
+function buildCatalog(rows,ic,id,ie){const map=new Map(),out=[];let dup=0,skip=0;
+ for(const r of rows){const c=String(r[ic]==null?'':r[ic]).trim(),k=key(c);if(!k){skip++;continue}const e=num(r[ie]);
+  if(map.has(k)){map.get(k).e=r2(map.get(k).e+e);dup++}else{const p={c,d:String(r[id]==null?'':r[id]).trim(),e:r2(e)};map.set(k,p);out.push(p)}}
+ return{list:out,dup,skip}}
+$('bMap').onclick=()=>{if(!raw)return;const rows=raw.slice($('mHdr').checked?1:0),res=buildCatalog(rows,+$('mCod').value,+$('mDesc').value,+$('mExi').value);
+ if(!res.list.length){toast('No se encontró ningún código con esas columnas',true);return}
+ cat=res.list;rebuild();saveCat();raw=null;$('mapBox').style.display='none';renderCat();
+ toast(`${cat.length} productos importados`+(res.dup?` · ${res.dup} repetidos sumados`:'')+(res.skip?` · ${res.skip} filas sin código`:''))};
+function renderCat(){const n=Object.keys(cnt).length;
+ $('catInfo').innerHTML=cat.length?`<b>${cat.length}</b> productos en el catálogo · ${n} contados`+cat.slice(0,5).map(p=>`<div class="muted">${esc(p.c)} — ${esc(p.d)} (${fmt(p.e)})</div>`).join('')+(cat.length>5?'<div class="muted">…</div>':''):'<span class="muted">Aún no hay catálogo. Importe un archivo abajo.</span>';
+ let used=0;try{used=(sget(K_CAT)||'').length+(sget(K_CNT)||'').length}catch(e){}
+ $('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB usados · versión 3`}
+
+/* ============ respaldo / reinicio ============ */
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+const today=()=>new Date().toISOString().slice(0,10);
+$('bBkp').onclick=()=>{const data={app:'conteo-inventario',v:3,fecha:new Date().toISOString(),cat:cat.map(p=>({c:p.c,d:p.d,e:p.e})),cnt};download(new Blob([JSON.stringify(data)],{type:'application/json'}),'respaldo_conteo_'+today()+'.json');toast('Respaldo exportado')};
+$('bBkpIn').onclick=()=>$('bkpFile').click();
+$('bkpFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ try{const d=JSON.parse(await f.text());if(!d||!Array.isArray(d.cat)||!d.cnt||typeof d.cnt!=='object'||Array.isArray(d.cnt))throw new Error('no es un respaldo válido');
+  const c=cleanCat(d.cat),n=cleanCnt(d.cnt);if(!confirm(`Este respaldo tiene ${c.length} productos y ${Object.keys(n).length} conteos.\n¿Reemplazar los datos actuales?`))return;
+  cat=c;cnt=n;rebuild();saveCat();saveCnt();clearSel();renderCat();toast('Respaldo importado')}
+ catch(err){toast('Respaldo inválido: '+(err&&err.message||err),true)}};
+$('bReset').onclick=()=>{if(!confirm('¿Reiniciar la app?\n\nSe BORRARÁN el catálogo y todo el conteo de este teléfono. Se recomienda exportar un respaldo antes.'))return;
+ if(!confirm('Última confirmación: ¿borrar todos los datos?'))return;
+ [K_CAT,K_CNT,OLD_CAT,OLD_CNT].forEach(sdel);try{Object.keys(localStorage).filter(k=>k.startsWith('inv3_dañado_')).forEach(k=>localStorage.removeItem(k))}catch(e){}
+ cat=[];cnt={};cur=null;rebuild();location.reload()};
+
+/* ============ exportar .xlsx ============ */
+function buildWorkbook(){const A=[['Código','Descripción','Existencia sistema','Conteo físico','Diferencia']];
+ for(const p of cat){const q=cnt[p._k]?cnt[p._k].q:0;A.push([p.c,p.d,p.e,q,r2(q-p.e)])}
+ const B=[['Código','Conteo físico']];for(const [k,x] of Object.entries(cnt))if(!idx.has(k))B.push([x.c,x.q]);
+ const wb=XLSX.utils.book_new(),w1=XLSX.utils.aoa_to_sheet(A),w2=XLSX.utils.aoa_to_sheet(B);
+ w1['!cols']=[{wch:16},{wch:44},{wch:12},{wch:12},{wch:12}];w2['!cols']=[{wch:20},{wch:14}];
+ XLSX.utils.book_append_sheet(wb,w1,'Conteo');XLSX.utils.book_append_sheet(wb,w2,'No en catálogo');return wb}
+$('bExp').onclick=()=>{if(!hasLib('XLSX')){toast('No cargó la librería de Excel (¿sin internet?)',true);return}
+ try{XLSX.writeFile(buildWorkbook(),'conteo_'+today()+'.xlsx');toast('Archivo exportado')}catch(e){toast('Error al exportar: '+e.message,true)}};
+
+/* ============ etiquetas QR ============ */
+function genLabels(){if(!hasLib('qrcode')){toast('No cargó el generador QR (¿sin internet?)',true);return}
+ const ws=norm($('eFil').value).split(/\s+/).filter(Boolean),ps=cat.filter(p=>ws.every(w=>p._s.includes(w)));
+ $('labels').style.setProperty('--cols',$('eCols').value);
+ if(ps.length>1500&&!confirm(ps.length+' etiquetas; puede tardar. ¿Continuar?'))return;
+ $('labels').innerHTML=ps.map(p=>{const q=qrcode(0,'M');q.addData(p.c);q.make();return`<div class="lab">${q.createSvgTag({cellSize:4,margin:1,scalable:true})}<b>${esc(p.c)}</b>${esc(p.d.slice(0,60))}</div>`}).join('')||'<div class="card">El catálogo está vacío.</div>';
+ $('eInfo').textContent=ps.length+' etiquetas'}
+$('bGen').onclick=genLabels;$('eCols').onchange=()=>$('labels').style.setProperty('--cols',$('eCols').value);
+$('bPrint').onclick=()=>{if(!$('labels').children.length)genLabels();window.print()};
+
+/* ============ arranque ============ */
+try{loadAll()}catch(e){cat=[];cnt={};rebuild();banner('⚠️ Error al cargar datos guardados: '+esc(e.message))}
+const missing=[['XLSX','Excel'],['Tesseract','lectura de texto'],['Html5Qrcode','escáner QR'],['qrcode','etiquetas QR']].filter(x=>!hasLib(x[0])).map(x=>x[1]);
+if(missing.length)banner('⚠️ No cargaron algunas librerías ('+missing.join(', ')+'). Se necesita internet la primera vez; recargue la página.');
+renderCat();
+window.APP={get cat(){return cat},get cnt(){return cnt},get cur(){return cur},ocrMatches,tokens,key,search,select,ocrPipeline,buildWorkbook,loadAll,difRows};
+</script>
+</body>
+</html>
