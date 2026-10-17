@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Conteo de inventario</title>
+<script>
+/* ============ CONFIGURACIÓN (Supabase) ============
+   Solo se usa la clave pública (publishable/anon). NUNCA ponga aquí la clave "service_role". */
+const SUPABASE_URL = 'https://mffejjvhrwfysdialnbe.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_ObiroT-fQ5nVyBzCUHYnVg_O_hNvUJ3';
+const POLL_MS = 10000;   // sondeo de respaldo si el tiempo real falla
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -61,20 +69,75 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
 .lab{background:#fff;border:1px dashed #94a3b8;padding:2mm;text-align:center;break-inside:avoid;font-size:11px;overflow:hidden}
 .lab svg{width:100%;max-width:38mm;height:auto}.lab b{display:block;font-size:15px;word-break:break-all}
 @media print{nav,.noprint,.banner,#toast{display:none!important}body{background:#fff;padding:0}main{max-width:none;padding:0}.tab{display:none!important}#t-etiq{display:block!important}#t-etiq .card{box-shadow:none;padding:0;margin:0}@page{margin:8mm}}
+.hide{display:none!important}
+body:not(.is-admin) .admin-only{display:none!important}
+#topbar{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 10px;background:#0f172a;color:#e2e8f0;font-size:14px}
+#topbar b{color:#fff}
+.badge{padding:5px 10px;border-radius:14px;font-weight:700;font-size:13px;white-space:nowrap}
+.badge.on{background:#166534;color:#dcfce7}.badge.sync{background:#92400e;color:#fef3c7}.badge.off{background:#991b1b;color:#fee2e2}
+.scr{max-width:460px;margin:0 auto;padding:16px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}.seg button{background:#e2e8f0;color:#111}.seg button.on{background:#2563eb;color:#fff}
+.field{display:block;margin:10px 0 4px;font-weight:600}
+.err{color:#b91c1c;font-weight:600;margin-top:8px;min-height:1.2em}
+.ok{color:#166534;font-weight:600;margin-top:8px}
+.by{font-size:13px;color:#475569}
+.mv{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #e2e8f0}.mv .q{width:64px;flex:none;text-align:center;font-weight:800;font-size:20px}.mv .d{flex:1;min-width:0;word-break:break-word}.mv button{min-height:40px;font-size:14px;padding:6px 10px;flex:none}
+.pend{background:#fffbeb}.fail{background:#fef2f2}
+.mem{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #e2e8f0}.mem .d{flex:1}.mem button{min-height:40px;font-size:14px;padding:6px 10px}
+.code{font-size:28px;font-weight:800;letter-spacing:3px;font-family:ui-monospace,Menlo,monospace}
 </style>
 </head>
 <body>
+<!-- ===== PANTALLAS DE ACCESO ===== -->
+<div id="scrLoad" class="scr"><div class="card" style="text-align:center">Cargando…</div></div>
+
+<div id="scrAuth" class="scr hide">
+ <div class="card">
+  <h2 style="font-size:24px">📦 Conteo de inventario</h2>
+  <div class="seg"><button id="aTabIn" class="on">Ingresar</button><button id="aTabUp">Crear cuenta</button></div>
+  <div id="aNameBox" class="hide"><label class="field" for="aName">Su nombre</label><input type="text" id="aName" autocomplete="name" placeholder="Ej. Ana López"></div>
+  <label class="field" for="aEmail">Correo</label><input type="text" id="aEmail" inputmode="email" autocomplete="email" autocapitalize="none" placeholder="correo@empresa.com">
+  <label class="field" for="aPass">Contraseña</label><input type="password" id="aPass" autocomplete="current-password" placeholder="mínimo 8 caracteres" style="font-size:20px;width:100%;padding:12px;border:2px solid #94a3b8;border-radius:12px;min-height:54px">
+  <div id="aMsg" class="err"></div>
+  <button id="aGo" style="width:100%;margin-top:6px">Ingresar</button>
+  <button id="aForgot" class="sec" style="width:100%;margin-top:8px;font-size:15px;min-height:44px">Olvidé mi contraseña</button>
+ </div>
+</div>
+
+<div id="scrRecov" class="scr hide"><div class="card">
+ <h2>Nueva contraseña</h2><input type="password" id="rPass" placeholder="Nueva contraseña (mín. 8)" style="font-size:20px;width:100%;padding:12px;border:2px solid #94a3b8;border-radius:12px;min-height:54px">
+ <div id="rMsg" class="err"></div><button id="rGo" style="width:100%">Guardar contraseña</button></div></div>
+
+<div id="scrOnb" class="scr hide">
+ <div class="card">
+  <h2>Bienvenido <span id="oUser"></span></h2>
+  <div class="muted">Cree el espacio de trabajo de su empresa o únase a uno existente con el código de invitación.</div>
+  <label class="field" for="oName">Su nombre (se muestra en los conteos)</label><input type="text" id="oName" placeholder="Ej. Ana López">
+  <div id="oPick" class="hide" style="margin-top:10px"><b>Sus empresas:</b><div id="oList"></div></div>
+ </div>
+ <div class="card">
+  <h2>Crear empresa</h2><input type="text" id="oWs" placeholder="Nombre de la empresa">
+  <button id="oCreate" class="grn" style="width:100%;margin-top:8px">Crear y ser administrador</button>
+ </div>
+ <div class="card">
+  <h2>Unirme con código</h2><input type="text" id="oCode" placeholder="Código de invitación" autocapitalize="characters" autocomplete="off">
+  <button id="oJoin" style="width:100%;margin-top:8px">Unirme</button>
+ </div>
+ <div id="oMsg" class="err"></div>
+ <button id="oOut" class="sec" style="width:100%">Salir de la cuenta</button>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="scrMain" class="hide">
+<div id="topbar"><div><b id="tWs"></b> <span id="tRole" class="muted" style="color:#94a3b8"></span><br><span id="tSes" style="font-size:12px;color:#94a3b8"></span></div><div id="badge" class="badge on">● En línea</div></div>
 <nav id="nav">
  <button data-t="contar" class="on">Contar</button>
  <button data-t="lista">Lista</button>
  <button data-t="dif">Diferencias</button>
- <button data-t="cat">Catálogo</button>
+ <button data-t="cat">Datos</button>
  <button data-t="etiq">Etiquetas QR</button>
 </nav>
-<div class="banner" id="banner"></div>
 <main>
-
-<!-- CONTAR -->
 <section class="tab on" id="t-contar">
  <div class="card"><div class="grid3">
   <button id="bOcr">🔤 Leer texto</button><button id="bQr">📷 Escanear QR</button><button id="bMan" class="sec">⌨️ Manual</button>
@@ -84,10 +147,11 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
   <div id="pCod"></div><div id="pDesc"></div>
   <div class="stats">
    <div><small>Sistema</small><b id="sSis">–</b></div>
-   <div><small>Llevas</small><b id="sLle">0</b></div>
+   <div><small>Contado</small><b id="sLle">0</b></div>
    <div><small>Dif. actual</small><b id="sDif">–</b></div>
    <div><small>Si agregas</small><b id="sNew">–</b></div>
   </div>
+  <div class="by" id="sWho"></div>
   <div class="qty"><button class="sec" id="qMenos" aria-label="menos">−</button><input id="qty" type="number" inputmode="numeric" value="1" aria-label="cantidad"><button class="sec" id="qMas" aria-label="más">+</button></div>
   <div class="row"><button class="sec" id="bCancel">Cancelar</button><button class="grn" id="bAdd" style="flex:2">Agregar al conteo</button></div>
  </div>
@@ -112,18 +176,19 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
  </div>
 </section>
 
-<!-- LISTA -->
 <section class="tab" id="t-lista">
  <div class="card">
-  <h2>Conteo actual</h2>
+  <h2>Conteo compartido</h2>
   <div id="lInfo" class="muted"></div>
-  <div class="row" style="margin-top:8px"><button class="grn" id="bExp">⬇️ Exportar .xlsx</button><button class="red" id="bClr">Borrar conteo</button></div>
-  <small>Todo se guarda automáticamente en este teléfono.</small>
+  <div class="seg" style="margin-top:8px"><button id="lvProd" class="on">Por producto</button><button id="lvMov">Movimientos</button></div>
+  <label><input type="checkbox" id="lMine" style="width:24px;height:24px;vertical-align:middle"> Solo mis movimientos</label>
+  <div class="row" style="margin-top:8px"><button class="grn" id="bExp">⬇️ Exportar .xlsx</button></div>
+  <small>Todo se guarda en la nube y lo ven todos los del equipo al instante.</small>
  </div>
+ <div class="card hide" id="lFail"></div>
  <div class="card" id="lista"></div>
 </section>
 
-<!-- DIFERENCIAS -->
 <section class="tab" id="t-dif">
  <div class="card">
   <div class="stats" id="dTot"></div>
@@ -134,12 +199,11 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
  <div class="card" style="padding:6px"><table id="dTab"></table><div id="dMore" class="muted"></div></div>
 </section>
 
-<!-- CATALOGO / DATOS -->
 <section class="tab" id="t-cat">
  <div class="card"><h2>Catálogo</h2><div id="catInfo"></div></div>
- <div class="card">
+ <div class="card admin-only">
   <h2>Importar catálogo</h2>
-  <div class="muted">Archivo Excel (.xlsx/.xls) o CSV con código, descripción y existencia (p. ej. exportado de Microsip).</div>
+  <div class="muted">Archivo Excel (.xlsx/.xls) o CSV con código, descripción y existencia (p. ej. exportado de Microsip). Solo administradores.</div>
   <input type="file" id="catFile" accept=".xlsx,.xls,.csv,.txt" style="margin-top:8px">
   <div id="mapBox" style="display:none;margin-top:12px">
    <label><input type="checkbox" id="mHdr" checked style="width:24px;height:24px;vertical-align:middle"> La primera fila es encabezado</label>
@@ -148,21 +212,36 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
     <label>Descripción<select id="mDesc"></select></label>
     <label>Existencia en sistema<select id="mExi"></select></label>
    </div>
+   <label style="display:block;margin-top:8px"><input type="checkbox" id="mRepl" style="width:24px;height:24px;vertical-align:middle"> Reemplazar: quitar los productos que no estén en el archivo</label>
    <div id="mPrev" style="overflow:auto;margin:8px 0"></div>
    <button id="bMap" class="grn" style="width:100%">Importar catálogo</button>
+   <div id="mProg" class="muted"></div>
   </div>
  </div>
  <div class="card">
-  <h2>Respaldo y datos</h2>
-  <div class="muted">Guarde un respaldo de vez en cuando (catálogo + conteo).</div>
-  <div class="row" style="margin:8px 0"><button id="bBkp">💾 Exportar respaldo</button><button id="bBkpIn" class="sec">📂 Importar respaldo</button></div>
-  <input type="file" id="bkpFile" accept=".json,application/json" hidden>
-  <button class="red" id="bReset" style="width:100%">🗑️ Reiniciar app / borrar datos</button>
+  <h2>Equipo</h2>
+  <div>Empresa: <b id="wsName"></b> · su rol: <b id="myRole"></b></div>
+  <div style="margin-top:8px">Código de invitación:</div><div class="code" id="invCode"></div>
+  <div class="row" style="margin:8px 0"><button class="sec" id="bCopy">📋 Copiar código</button><button class="sec admin-only" id="bRot">🔄 Código nuevo</button></div>
+  <small>Quien se registre y use este código entrará a su empresa.</small>
+  <div id="memList" style="margin-top:8px"></div>
+  <label class="field" for="myName">Mi nombre</label><div class="row"><input type="text" id="myName"><button id="bName" class="sec" style="flex:none">Guardar</button></div>
+  <div class="row" style="margin-top:12px"><button id="bSwitch" class="sec">Cambiar de empresa</button><button id="bOut" class="red">Salir</button></div>
+ </div>
+ <div class="card">
+  <h2>Respaldo y conteos</h2>
+  <label class="field" for="expSes">Conteo a exportar</label><select id="expSes"></select>
+  <div class="row" style="margin:8px 0"><button id="bExp2" class="grn">⬇️ Exportar .xlsx</button><button id="bBkp">💾 Respaldo JSON</button></div>
+  <div class="admin-only">
+   <button id="bBkpIn" class="sec" style="width:100%;margin-bottom:8px">📂 Importar respaldo (admin)</button>
+   <input type="file" id="bkpFile" accept=".json,application/json" hidden>
+   <button class="red" id="bReset" style="width:100%">🗑️ Cerrar y reiniciar conteo</button>
+   <small>El conteo actual se cierra y queda guardado en el historial; se inicia uno nuevo en cero para todos. El catálogo se conserva.</small>
+  </div>
   <div class="muted" id="stoInfo" style="margin-top:8px"></div>
  </div>
 </section>
 
-<!-- ETIQUETAS -->
 <section class="tab" id="t-etiq">
  <div class="card noprint">
   <h2>Etiquetas QR</h2>
@@ -173,14 +252,14 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
  </div>
  <div id="labels"></div>
 </section>
-
 </main>
+</div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div class="box">
- <h2 id="mTitle" style="color:#dc2626">⚠️ Borrar todos los datos</h2>
- <p>Se borrarán el <b>catálogo</b> y <b>todo el conteo</b> de este teléfono. Esta acción no se puede deshacer (exporte un respaldo antes).</p>
+ <h2 id="mTitle" style="color:#dc2626">⚠️ Cerrar y reiniciar conteo</h2>
+ <p>Se <b>cerrará el conteo actual</b> «<span id="mSes"></span>» (queda guardado en el historial) y se iniciará uno nuevo <b>en cero para todo el equipo</b>. El catálogo se conserva. Se recomienda exportar antes.</p>
  <p>Para continuar escriba la palabra <b>autorizar</b>:</p>
  <input type="text" id="mWord" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="autorizar">
- <div class="row" style="margin-top:12px"><button class="sec" id="mCancel">Cancelar</button><button class="red" id="mOk" disabled>Borrar todo</button></div>
+ <div class="row" style="margin-top:12px"><button class="sec" id="mCancel">Cancelar</button><button class="red" id="mOk" disabled>Cerrar y reiniciar</button></div>
 </div></div>
 <div id="toast"></div>
 
@@ -205,41 +284,121 @@ function banner(html){const b=$('banner');b.innerHTML=html+'<br><button class="s
 window.addEventListener('error',e=>{try{toast('Error: '+(e.message||e),true)}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{toast('Error: '+((e.reason&&e.reason.message)||e.reason),true)}catch(_){}});
 
-/* ============ almacenamiento robusto ============ */
-const K_CAT='inv3_cat',K_CNT='inv3_cnt',OLD_CAT='inv_cat',OLD_CNT='inv_cnt';
-const mem={};let storageOK=true;
+/* ============ almacenamiento local (con protección) ============ */
+const mem={};let storageOK=true,warned=false;
 function sget(k){try{return localStorage.getItem(k)}catch(e){storageOK=false;return mem[k]!=null?mem[k]:null}}
-function sset(k,v){mem[k]=v;try{localStorage.setItem(k,v);return true}catch(e){storageOK=false;if(!warned){warned=true;banner('⚠️ Este navegador no permite guardar datos (¿modo privado o sin espacio?). Use <b>Exportar respaldo</b> para no perder el conteo.')}return false}}
+function sset(k,v){mem[k]=v;try{localStorage.setItem(k,v);return true}catch(e){storageOK=false;if(!warned){warned=true;banner('⚠️ Este navegador no permite guardar datos locales (¿modo privado o sin espacio?). Los conteos pendientes sin conexión podrían perderse al cerrar.')}return false}}
 function sdel(k){delete mem[k];try{localStorage.removeItem(k)}catch(e){}}
+function jget(k,def,shape){const r=sget(k);if(r==null)return def;try{const v=JSON.parse(r);return shape(v)?v:def}catch(e){return def}}
+const uuid=()=>{try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16)})};
+const fdate=t=>{try{return new Date(t).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return''}};
 
-let cat=[],idx=new Map(),cnt={},cur=null,warned=false;
-
-function cleanCat(a){const out=[],seen=new Set();if(!Array.isArray(a))return out;
- for(const it of a){if(!it||typeof it!=='object')continue;const c=String(it.c==null?'':it.c).trim(),k=key(c);if(!k||seen.has(k))continue;seen.add(k);out.push({c,d:String(it.d==null?'':it.d).trim(),e:num(it.e)})}return out}
-function cleanCnt(o){const out={};if(!o||typeof o!=='object'||Array.isArray(o))return out;
- for(const v of Object.values(o)){if(!v||typeof v!=='object')continue;const c=String(v.c==null?'':v.c).trim(),k=key(c);if(!k)continue;const q=num(v.q);
-  if(out[k])out[k].q=r2(out[k].q+q);else out[k]={c,q:r2(q),t:num(v.t)}}return out}
-function rebuild(){idx=new Map();for(const p of cat){p._k=key(p.c);p._s=norm(p.c+' '+p.d)+' '+p._k;idx.set(p._k,p)}}
-function saveCat(){return sset(K_CAT,JSON.stringify(cat.map(p=>({c:p.c,d:p.d,e:p.e}))))}
-function saveCnt(){return sset(K_CNT,JSON.stringify(cnt))}
-function readJSON(k,oldK,shape){let raw=sget(k),from=k;if(raw==null&&oldK){raw=sget(oldK);from=oldK}
- if(raw==null)return{v:null};
- try{const v=JSON.parse(raw);if(!shape(v))throw new Error('forma');return{v}}
- catch(e){sset('inv3_dañado_'+from,raw);return{bad:true}}}
-function loadAll(){
- const a=readJSON(K_CAT,OLD_CAT,Array.isArray),b=readJSON(K_CNT,OLD_CNT,v=>v&&typeof v==='object'&&!Array.isArray(v));
- cat=a.v?cleanCat(a.v):[];cnt=b.v?cleanCnt(b.v):{};rebuild();
- if(a.bad||b.bad)banner('⚠️ Se detectaron datos dañados en el almacenamiento y se iniciaron vacíos'+(a.bad&&b.bad?'':' (solo la parte dañada)')+'. Se guardó una copia del contenido dañado. Si tiene un <b>respaldo</b>, impórtelo en la pestaña Catálogo.');
- if(!a.bad&&!b.bad&&((a.v&&!sget(K_CAT))||(b.v&&!sget(K_CNT)))){saveCat();saveCnt()} // migra datos de versiones anteriores
-}
+/* ============ estado ============ */
+let sb=null,user=null,mems=[],ws=null,sess=null,sessions=[],members=[];
+let cat=[],idx=new Map(),entries=new Map(),pending=[],cnt={},cur=null;
+let net='ok',rtOK=false,chan=null,pollT=null,pollN=0,lastEntryT=0,lastProdT=0,polling=false,flushing=false;
+const K_WS='inv5_ws_',K_Q='inv5_q_',K_CACHE='inv5_cache_';
+const isAdmin=()=>!!ws&&ws.role==='admin';
 const findCode=c=>idx.get(key(c));
+function rebuild(){idx=new Map();for(const p of cat){p._k=key(p.c);p._s=norm(p.c+' '+p.d)+' '+p._k;idx.set(p._k,p)}}
+const netFail=(error,status)=>status===0||status>=500||status===401||status===408||status===429||(!status&&/fetch|network|load failed|timeout|abort/i.test((error&&error.message)||''));
+function friendly(e){const m=(e&&e.message)||String(e);
+ if(/Invalid login/i.test(m))return'Correo o contraseña incorrectos';if(/not confirmed/i.test(m))return'Debe confirmar su correo antes de ingresar (revise su bandeja).';
+ if(/already registered|already been registered/i.test(m))return'Ese correo ya está registrado. Use «Ingresar».';if(/rate limit|too many/i.test(m))return'Demasiados intentos. Espere unos minutos.';
+ if(/Password should be|at least/i.test(m))return'La contraseña debe tener al menos 8 caracteres.';if(/valid email|invalid format|is invalid/i.test(m))return'Correo no válido.';
+ if(/inválido|Invalid.*code|P0002/i.test(m))return'Código de invitación inválido.';if(/row-level security|42501|permission denied|Solo admin/i.test(m))return'No tiene permiso para esta acción.';
+ if(/Failed to fetch|NetworkError|Load failed/i.test(m))return'Sin conexión a internet.';return m}
 
-/* ============ navegación ============ */
-let tab='contar';
-function show(t){tab=t;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
- if(t!=='contar')setMode(null);
- if(t==='lista')renderList();if(t==='dif')renderDif();if(t==='cat')renderCat();window.scrollTo(0,0)}
-$('nav').onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.t)};
+/* ============ conexión / insignia ============ */
+function setNet(ok){const n=ok?'ok':'off';if(n!==net){net=n;renderBadge()}}
+function renderBadge(){const b=$('badge');if(!b)return;const p=pending.filter(e=>!e.failed).length,f=pending.length-p,off=!navigator.onLine||net==='off';
+ b.className='badge '+(off?'off':p?'sync':'on');
+ const pl=p===1?' pendiente':' pendientes';b.textContent=off?('● Sin conexión'+(p?' · '+p+pl:'')):p?('● Sincronizando · '+p):'● En línea';
+ if(f)b.textContent+=' · ⚠ '+f+' rechazados';b.title=rtOK?'Tiempo real activo':'Actualización cada '+(POLL_MS/1000)+' s'}
+window.addEventListener('online',()=>{setNet(true);renderBadge();pollOnce()});window.addEventListener('offline',()=>{renderBadge()});
+
+/* ============ derivar totales ============ */
+function derive(){const c={};
+ const add=(code,q,t,name)=>{const k=key(code);if(!k)return;const o=c[k]||(c[k]={c:code,q:0,t:0,by:{}});o.q=r2(o.q+q);if(t>o.t)o.t=t;o.by[name]=r2((o.by[name]||0)+q)};
+ for(const e of entries.values())add(e.c,e.q,e.t,e.n||'?');
+ for(const e of pending)if(!e.failed&&!entries.has(e.id))add(e.code,e.qty,e.t,(ws&&ws.display_name)||'yo');
+ for(const k in c){const p=idx.get(k);if(p)c[k].c=p.c}
+ cnt=c}
+let rafP=false,saveT=null;
+function refresh(){if(rafP)return;rafP=true;(window.requestAnimationFrame||setTimeout)(()=>{rafP=false;try{derive();renderBadge();renderActive();clearTimeout(saveT);saveT=setTimeout(saveCache,1500)}catch(e){console.error(e)}})}
+function renderActive(){updStats();if(tab==='lista'&&!(document.activeElement&&$('lista').contains(document.activeElement)))renderList();else if(tab==='dif')renderDif();else if(tab==='cat')renderCat()}
+
+/* ============ caché local (lectura sin conexión) ============ */
+function saveCache(){if(!ws||!sess)return;try{const s=JSON.stringify({cat:cat.map(p=>[p.c,p.d,p.e]),sid:sess.id,sname:sess.name,ent:[...entries.values()].map(e=>[e.id,e.c,e.q,e.u,e.n,e.t,e.note])});if(s.length<3.5e6)sset(K_CACHE+ws.id,s)}catch(e){}}
+function loadCache(){const o=jget(K_CACHE+ws.id,null,v=>v&&Array.isArray(v.cat)&&Array.isArray(v.ent));if(!o)return;
+ cat=o.cat.map(a=>({c:String(a[0]),d:String(a[1]||''),e:num(a[2])}));rebuild();sess={id:o.sid,name:o.sname};
+ entries=new Map(o.ent.map(a=>[a[0],{id:a[0],c:a[1],k:key(a[1]),q:num(a[2]),u:a[3],n:a[4],t:num(a[5]),note:a[6]}]));
+ for(const e of entries.values())if(e.t>lastEntryT)lastEntryT=e.t}
+const pendKey=()=>K_Q+user.id+'_'+ws.id;
+function loadPending(){return jget(pendKey(),[],Array.isArray).filter(e=>e&&e.id&&e.code&&typeof e.qty==='number')}
+function savePending(){sset(pendKey(),JSON.stringify(pending))}
+
+/* ============ carga de datos ============ */
+async function fetchAll(build){const out=[];for(let from=0;;from+=1000){const{data,error,status}=await build().range(from,from+999);if(error){error.status=status;throw error}out.push(...data);if(data.length<1000)break}return out}
+const toEntry=r=>({id:r.id,c:r.code,k:key(r.code),q:num(r.qty),u:r.user_id,n:r.user_name,t:Date.parse(r.created_at),note:r.note});
+const E_COLS='id,code,qty,user_id,user_name,note,created_at';
+async function loadProducts(){const rows=await fetchAll(()=>sb.from('products').select('id,code,description,system_qty,updated_at').eq('workspace_id',ws.id).order('normalized_code'));
+ cat=rows.map(r=>({id:r.id,c:r.code,d:r.description||'',e:num(r.system_qty)}));rebuild();lastProdT=rows.reduce((m,r)=>Math.max(m,Date.parse(r.updated_at)||0),0);refresh()}
+async function loadEntries(){const rows=await fetchAll(()=>sb.from('count_entries').select(E_COLS).eq('session_id',sess.id).order('created_at').order('id'));
+ entries=new Map(rows.map(r=>[r.id,toEntry(r)]));lastEntryT=0;for(const e of entries.values())if(e.t>lastEntryT)lastEntryT=e.t;refresh()}
+async function loadMembers(){const{data,error}=await sb.from('workspace_members').select('user_id,role,display_name').eq('workspace_id',ws.id).order('created_at');if(error)throw error;
+ members=data;const me=members.find(m=>m.user_id===user.id);if(me){const ch=me.role!==ws.role;ws.role=me.role;ws.display_name=me.display_name||ws.display_name;if(ch)applyRole()}else if(members.length){toast('Ya no pertenece a esta empresa',true);setTimeout(()=>leaveWorkspace(),500)}
+ if(tab==='cat')renderCat()}
+async function syncSessions(){const{data,error,status}=await sb.from('count_sessions').select('id,name,status,created_at,closed_at').eq('workspace_id',ws.id).order('created_at',{ascending:false}).limit(50);
+ if(error){error.status=status;throw error}sessions=data;const open=data.find(s=>s.status==='open');
+ if(open&&(!sess||open.id!==sess.id)){const had=!!sess;sess={id:open.id,name:open.name};await loadEntries();if(had)toast('📣 Nuevo conteo iniciado: '+open.name)}
+ else if(open)sess.name=open.name;
+ renderTop()}
+async function initialLoad(){try{await syncSessions();await Promise.all([loadProducts(),loadMembers()]);setNet(true)}catch(e){if(netFail(e,e.status))setNet(false);else{toast('Error al cargar: '+friendly(e),true)}}refresh()}
+async function pollOnce(){if(!ws||!user||polling)return;polling=true;
+ try{await flush();await syncSessions();
+  if(sess){const since=new Date(Math.max(0,lastEntryT-60000)).toISOString();
+   const rows=await fetchAll(()=>sb.from('count_entries').select(E_COLS).eq('session_id',sess.id).gte('created_at',since).order('created_at').order('id'));
+   for(const r of rows){const e=toEntry(r);entries.set(e.id,e);if(e.t>lastEntryT)lastEntryT=e.t}}
+  const ps=new Date(Math.max(0,lastProdT-60000)).toISOString();
+  const pr=await fetchAll(()=>sb.from('products').select('id,code,description,system_qty,updated_at').eq('workspace_id',ws.id).gte('updated_at',ps).order('updated_at').order('id'));
+  if(pr.length){const m=new Map(cat.map(p=>[p.id,p]));for(const r of pr){m.set(r.id,{id:r.id,c:r.code,d:r.description||'',e:num(r.system_qty)});lastProdT=Math.max(lastProdT,Date.parse(r.updated_at)||0)}cat=[...m.values()];rebuild()}
+  if(++pollN%6===0){const{count,error}=await sb.from('products').select('id',{count:'exact',head:true}).eq('workspace_id',ws.id);if(!error&&count!=null&&count!==cat.length)await loadProducts();await loadMembers()}
+  setNet(true)}
+ catch(e){if(netFail(e,e&&e.status))setNet(false);else console.warn('poll',e)}
+ finally{polling=false;refresh()}}
+function startPoll(){clearInterval(pollT);pollT=setInterval(()=>{if(!document.hidden)pollOnce()},POLL_MS)}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ws)pollOnce()});
+
+/* ============ tiempo real ============ */
+let prodQ=[],prodT=null;
+function startRealtime(){stopRealtime();if(!sb||!ws)return;const f='workspace_id=eq.'+ws.id;
+ try{chan=sb.channel('ws-'+ws.id)
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'count_entries',filter:f},p=>{const r=p.new;if(r&&sess&&r.session_id===sess.id){const e=toEntry(r);entries.set(e.id,e);if(e.t>lastEntryT)lastEntryT=e.t;pending=pending.filter(x=>x.id!==e.id);refresh()}})
+  .on('postgres_changes',{event:'*',schema:'public',table:'products',filter:f},p=>{prodQ.push(p);clearTimeout(prodT);prodT=setTimeout(applyProdQ,300)})
+  .on('postgres_changes',{event:'*',schema:'public',table:'count_sessions',filter:f},()=>setTimeout(pollOnce,0))
+  .on('postgres_changes',{event:'*',schema:'public',table:'workspace_members',filter:f},()=>setTimeout(()=>loadMembers().catch(()=>{}),0))
+  .subscribe(st=>{const was=rtOK;rtOK=st==='SUBSCRIBED';renderBadge();if(rtOK&&!was)setTimeout(pollOnce,0)})}
+ catch(e){console.warn('realtime',e)}}
+function stopRealtime(){rtOK=false;if(chan&&sb){try{sb.removeChannel(chan)}catch(e){}}chan=null}
+function applyProdQ(){const q=prodQ;prodQ=[];if(q.length>400){loadProducts().catch(()=>{});return}
+ const m=new Map(cat.map(p=>[p.id,p]));for(const p of q){if(p.eventType==='DELETE'){if(p.old&&p.old.id)m.delete(p.old.id)}else if(p.new){m.set(p.new.id,{id:p.new.id,c:p.new.code,d:p.new.description||'',e:num(p.new.system_qty)});lastProdT=Math.max(lastProdT,Date.parse(p.new.updated_at)||0)}}
+ cat=[...m.values()];rebuild();refresh()}
+
+/* ============ agregar conteos (cola con ids únicos) ============ */
+function addEntry(code,qty,note){if(!ws||!sess){toast('Aún no hay conteo activo',true);return false}
+ const e={id:uuid(),ws:ws.id,sid:sess.id,code:String(code).trim().slice(0,64),qty:r2(qty),note:note?String(note).slice(0,200):null,t:Date.now(),name:ws.display_name};
+ pending.push(e);savePending();derive();refresh();setTimeout(flush,0);return true}
+async function flush(){if(flushing||!ws||!user)return;const todo=pending.filter(e=>!e.failed);if(!todo.length)return;flushing=true;
+ try{for(let i=0;i<todo.length;i+=50){const r=await sendBatch(todo.slice(i,i+50));if(r==='net'){setNet(false);return}setNet(true)}}
+ catch(e){setNet(false)}finally{flushing=false;savePending();refresh()}}
+async function sendBatch(batch){
+ const rows=batch.map(e=>({id:e.id,workspace_id:e.ws,session_id:e.sid,code:e.code,normalized_code:key(e.code),qty:e.qty,note:e.note||null}));
+ const{error,status}=await sb.from('count_entries').upsert(rows,{onConflict:'id',ignoreDuplicates:true});
+ if(!error){for(const e of batch){pending=pending.filter(x=>x.id!==e.id);if(sess&&e.sid===sess.id)entries.set(e.id,{id:e.id,c:e.code,k:key(e.code),q:e.qty,u:user.id,n:e.name,t:e.t,note:e.note})}return'ok'}
+ if(netFail(error,status))return'net';
+ if(batch.length>1){for(const e of batch){if(await sendBatch([e])==='net')return'net'}return'ok'}
+ batch[0].failed=/row-level|42501|permission/i.test(error.message+error.code)?'El conteo ya fue cerrado o no tiene permiso':friendly(error);return'fail'}
 
 /* ============ búsqueda manual ============ */
 function search(q){const kq=key(q),ws=norm(q).split(/\s+/).filter(Boolean);if(!kq)return[];const out=[];
@@ -251,6 +410,17 @@ $('busca').onkeydown=e=>{if(e.key==='Enter'){const f=$('sug').querySelector('div
 $('sug').onclick=e=>{const d=e.target.closest('div[data-c]');if(d)select(d.dataset.c)};
 $('bMan').onclick=()=>{setMode(null);$('busca').focus()};
 
+/* ============ navegación ============ */
+let tab='contar';
+function show(t){tab=t;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+ if(t!=='contar')setMode(null);
+ if(t==='lista')renderList();if(t==='dif')renderDif();if(t==='cat')renderCat();window.scrollTo(0,0)}
+$('nav').onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.t)};
+const SCREENS=['scrLoad','scrAuth','scrRecov','scrOnb','scrMain'];
+function screen(s){SCREENS.forEach(x=>$(x).classList.toggle('hide',x!==s));window.scrollTo(0,0)}
+function applyRole(){document.body.classList.toggle('is-admin',isAdmin());$('tRole').textContent=isAdmin()?'(administrador)':'(miembro)';$('myRole').textContent=isAdmin()?'administrador':'miembro'}
+function renderTop(){if(!ws)return;$('tWs').textContent=ws.name;$('tSes').textContent=sess?('Conteo: '+sess.name):'';applyRole()}
+
 /* ============ producto seleccionado ============ */
 let coolUntil=0;
 function select(code){const raw=String(code==null?'':code).trim(),k=key(raw);if(!k)return;
@@ -258,17 +428,19 @@ function select(code){const raw=String(code==null?'':code).trim(),k=key(raw);if(
  $('pCod').textContent=cur.c;$('pDesc').textContent=cur.d;$('qty').value=1;$('prod').style.display='block';$('sug').innerHTML='';$('busca').value='';updStats();
  $('prod').scrollIntoView({behavior:'smooth',block:'start'})}
 function clearSel(){cur=null;$('prod').style.display='none';coolUntil=Date.now()+2500}
-function updStats(){if(!cur)return;const l=cnt[cur.k]?cnt[cur.k].q:0,q=num($('qty').value),e=cur.e;
+const byText=o=>Object.entries(o||{}).filter(x=>x[1]!==0).map(([n,q])=>esc(n)+' '+fmt(q)).join(' · ');
+function updStats(){if(!cur)return;const o=cnt[cur.k],l=o?o.q:0,q=num($('qty').value),e=cur.e;
  const set=(id,t,c)=>{$(id).textContent=t;$(id).className=c||''};
  set('sSis',cur.inCat?fmt(e):'N/A');set('sLle',fmt(l));
- const d=cur.inCat?r2(l-e):null,n=cur.inCat?r2(l+q-e):null;set('sDif',cur.inCat?sg(d):'–',cls(d));set('sNew',cur.inCat?sg(n):fmt(l+q),cls(n))}
+ const d=cur.inCat?r2(l-e):null,n=cur.inCat?r2(l+q-e):null;set('sDif',cur.inCat?sg(d):'–',cls(d));set('sNew',cur.inCat?sg(n):fmt(l+q),cls(n));
+ $('sWho').innerHTML=o&&byText(o.by)?'Contado por: '+byText(o.by):''}
 $('qMas').onclick=()=>{$('qty').value=r2(num($('qty').value)+1);updStats()};
 $('qMenos').onclick=()=>{$('qty').value=Math.max(0,r2(num($('qty').value)-1));updStats()};
 $('qty').oninput=updStats;$('qty').onfocus=()=>$('qty').select();
 $('bCancel').onclick=clearSel;
 $('bAdd').onclick=()=>{if(!cur)return;const q=num($('qty').value);if(!q){toast('La cantidad es 0',true);return}
- const o=cnt[cur.k];cnt[cur.k]={c:o?o.c:cur.c,q:r2((o?o.q:0)+q),t:Date.now()};saveCnt();
- toast(`✔ ${cur.c}: ${q>0?'+':''}${fmt(q)}  (total ${fmt(cnt[cur.k].q)})`);clearSel();$('chips').innerHTML='';$('ocrMsg').textContent=''};
+ const c=cur.c;if(!addEntry(c,q))return;
+ toast(`✔ ${c}: ${q>0?'+':''}${fmt(q)}`+(navigator.onLine?'':' (se enviará al reconectar)'));clearSel();$('chips').innerHTML='';$('ocrMsg').textContent=''};
 
 /* ============ modo cámara ============ */
 let mode=null;
@@ -364,28 +536,51 @@ $('ocrFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!
  catch(err){$('ocrMsg').textContent='Error OCR: '+(err&&err.message||err)}finally{busy=false}};
 
 /* ============ lista ============ */
-function renderList(){const it=Object.entries(cnt).sort((a,b)=>b[1].t-a[1].t);
- $('lInfo').textContent=`${it.length} códigos · ${fmt(r2(it.reduce((s,x)=>s+x[1].q,0)))} piezas`;
- $('lista').innerHTML=it.map(([k,x])=>{const p=idx.get(k);return`<div class="item"><div class="d"><b>${esc(x.c)}</b><br><small>${esc(p?p.d:'NO ESTÁ EN CATÁLOGO')}${p?' · sistema '+fmt(p.e):''}</small></div><input type="number" inputmode="numeric" value="${esc(x.q)}" data-k="${esc(k)}" aria-label="cantidad"><button class="red" data-del="${esc(k)}" aria-label="borrar">✕</button></div>`}).join('')||'<span class="muted">Aún no hay conteos.</span>'}
-$('lista').onchange=e=>{const k=e.target.dataset&&e.target.dataset.k;if(k&&cnt[k]){cnt[k].q=r2(num(e.target.value));cnt[k].t=Date.now();saveCnt();renderList()}};
-$('lista').onclick=e=>{const b=e.target.closest('[data-del]');if(!b)return;const k=b.dataset.del;if(cnt[k]&&confirm('¿Quitar '+cnt[k].c+' del conteo?')){delete cnt[k];saveCnt();renderList()}};
-$('bClr').onclick=()=>{if(Object.keys(cnt).length&&confirm('¿Borrar TODO el conteo? (el catálogo se conserva)')){cnt={};saveCnt();renderList()}};
+let lView='prod';
+$('lvProd').onclick=()=>{lView='prod';$('lvProd').classList.add('on');$('lvMov').classList.remove('on');renderList()};
+$('lvMov').onclick=()=>{lView='mov';$('lvMov').classList.add('on');$('lvProd').classList.remove('on');renderList()};
+$('lMine').onchange=renderList;
+let movLim=100;
+function allMoves(){const a=[...entries.values()].map(e=>({id:e.id,c:e.c,q:e.q,u:e.u,n:e.n,t:e.t,note:e.note,st:'ok'}));
+ for(const e of pending)if(!entries.has(e.id))a.push({id:e.id,c:e.code,q:e.qty,u:user.id,n:ws.display_name,t:e.t,note:e.note,st:e.failed?'fail':'pend',err:e.failed});
+ return a.sort((x,y)=>y.t-x.t)}
+function renderList(){if(!ws)return;
+ const fails=pending.filter(e=>e.failed);
+ $('lFail').classList.toggle('hide',!fails.length);
+ $('lFail').innerHTML=fails.length?'<b style="color:#b91c1c">⚠ Movimientos rechazados</b>'+fails.map(e=>`<div class="mv fail"><div class="q">${sg(e.qty)}</div><div class="d"><b>${esc(e.code)}</b><br><small>${esc(e.failed)}</small></div><button data-retry="${esc(e.id)}">Reintentar</button><button class="red" data-drop="${esc(e.id)}">✕</button></div>`).join(''):'';
+ const mine=$('lMine').checked;
+ if(lView==='prod'){const it=Object.entries(cnt).sort((a,b)=>b[1].t-a[1].t);
+  $('lInfo').textContent=`${it.length} productos · ${fmt(r2(it.reduce((s,x)=>s+x[1].q,0)))} piezas · ${new Set([...entries.values()].map(e=>e.u)).size} persona(s)`;
+  $('lista').innerHTML=it.map(([k,x])=>{const p=idx.get(k);return`<div class="item"><div class="d"><b>${esc(x.c)}</b><br><small>${esc(p?p.d:'NO ESTÁ EN CATÁLOGO')}${p?' · sistema '+fmt(p.e):''}</small><div class="by">${byText(x.by)}</div></div><input type="number" inputmode="numeric" value="${esc(x.q)}" data-k="${esc(k)}" aria-label="cantidad"><button class="red" data-zero="${esc(k)}" aria-label="poner en cero">✕</button></div>`}).join('')||'<span class="muted">Aún no hay conteos.</span>'}
+ else{let mv=allMoves();if(mine)mv=mv.filter(m=>m.u===user.id);$('lInfo').textContent=mv.length+' movimientos';
+  $('lista').innerHTML=mv.slice(0,movLim).map(m=>{const p=findCode(m.c);const canUndo=m.st==='ok'&&(m.u===user.id||isAdmin());
+   return`<div class="mv ${m.st==='pend'?'pend':''}"><div class="q ${cls(m.q)==='neg'?'neg':'zero'}">${sg(m.q)}</div><div class="d"><b>${esc(m.c)}</b> <small>${esc(p?p.d:'no está en catálogo')}</small><br><span class="by">Contado por <b>${esc(m.n||'?')}</b> · ${fdate(m.t)}${m.st==='pend'?' · ⏳ pendiente':''}</span>${m.note?`<br><span class="by">📝 ${esc(m.note)}</span>`:''}</div>${canUndo?`<button class="sec" data-undo="${esc(m.id)}">Deshacer</button>`:''}</div>`}).join('')||'<span class="muted">Sin movimientos.</span>';
+  if(mv.length>movLim)$('lista').innerHTML+=`<button class="sec" id="bMore" style="width:100%;margin-top:8px">Ver más (${mv.length-movLim})</button>`}}
+$('lista').onchange=e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k||!cnt[k])return;const nv=r2(num(e.target.value)),d=r2(nv-cnt[k].q);if(d)addEntry(cnt[k].c,d,'Ajuste a '+fmt(nv))};
+$('lista').addEventListener('focusout',()=>setTimeout(refresh,60));
+$('lista').onclick=e=>{
+ const z=e.target.closest('[data-zero]');if(z){const x=cnt[z.dataset.zero];if(x&&x.q&&confirm('¿Poner en cero '+x.c+'? (se registra un ajuste de '+sg(-x.q)+')'))addEntry(x.c,-x.q,'Puesto en cero');return}
+ const u=e.target.closest('[data-undo]');if(u){const m=allMoves().find(x=>x.id===u.dataset.undo);if(m&&confirm('¿Deshacer '+sg(m.q)+' de '+m.c+' ('+m.n+')?'))addEntry(m.c,-m.q,'Anula movimiento de '+m.n+' '+fdate(m.t));return}
+ if(e.target.id==='bMore'){movLim+=200;renderList()}};
+$('lFail').onclick=e=>{const r=e.target.closest('[data-retry]'),d=e.target.closest('[data-drop]');
+ if(r){const p=pending.find(x=>x.id===r.dataset.retry);if(p){if(sess&&p.sid!==sess.id){p.sid=sess.id}delete p.failed;savePending();refresh();flush()}}
+ if(d&&confirm('¿Descartar este movimiento?')){pending=pending.filter(x=>x.id!==d.dataset.drop);savePending();refresh()}};
 
 /* ============ diferencias ============ */
 let dF='todos';const DLIM=400;
-function difRows(){const rows=cat.map(p=>{const q=cnt[p._k],f=q?q.q:null;return{k:p._k,c:p.c,d:p.d,s:p.e,f,dif:r2((f==null?0:f)-p.e)}});
- for(const [k,x] of Object.entries(cnt))if(!idx.has(k))rows.push({k,c:x.c,d:'NO ESTÁ EN CATÁLOGO',s:null,f:x.q,dif:x.q});return rows}
-function renderDif(){const all=difRows(),ws=norm($('dBus').value).split(/\s+/).filter(Boolean),kq=key($('dBus').value);
+function difRows(){const rows=cat.map(p=>{const q=cnt[p._k],f=q?q.q:null;return{k:p._k,c:p.c,d:p.d,s:p.e,f,dif:r2((f==null?0:f)-p.e),by:q?q.by:null}});
+ for(const [k,x] of Object.entries(cnt))if(!idx.has(k))rows.push({k,c:x.c,d:'NO ESTÁ EN CATÁLOGO',s:null,f:x.q,dif:x.q,by:x.by});return rows}
+function renderDif(){const all=difRows(),ws2=norm($('dBus').value).split(/\s+/).filter(Boolean),kq=key($('dBus').value);
  const cont=all.filter(r=>r.f!=null),con=cont.filter(r=>r.dif!==0);
  $('dTot').innerHTML=`<div><small>Contados</small><b>${cont.length}</b></div><div><small>Piezas</small><b>${fmt(r2(cont.reduce((s,r)=>s+r.f,0)))}</b></div><div><small>Con dif.</small><b class="${con.length?'neg':'zero'}">${con.length}</b></div><div><small>Sin contar</small><b>${all.length-cont.length}</b></div>`;
- const rs=all.filter(r=>dF==='todos'||(dF==='dif'&&r.f!=null&&r.dif!==0)||(dF==='sin'&&r.f==null)||(dF==='con'&&r.f!=null)).filter(r=>{const t=norm(r.c+' '+r.d)+' '+key(r.c);return ws.every(w=>t.includes(w))||(kq&&t.includes(kq))});
- $('dTab').innerHTML='<tr><th>Producto</th><th>Sistema</th><th>Físico</th><th>Dif.</th></tr>'+rs.slice(0,DLIM).map(r=>`<tr data-k="${esc(r.k)}"><td><b>${esc(r.c)}</b><br><small>${esc(r.d)}</small></td><td>${fmt(r.s)}</td><td>${r.f==null?'<small>sin contar</small>':'<b>'+fmt(r.f)+'</b>'}</td><td class="${r.f==null?'':cls(r.dif)}"><b>${r.f==null?'':sg(r.dif)}</b></td></tr>`).join('');
+ const rs=all.filter(r=>dF==='todos'||(dF==='dif'&&r.f!=null&&r.dif!==0)||(dF==='sin'&&r.f==null)||(dF==='con'&&r.f!=null)).filter(r=>{const t=norm(r.c+' '+r.d)+' '+key(r.c);return ws2.every(w=>t.includes(w))||(kq&&t.includes(kq))});
+ $('dTab').innerHTML='<tr><th>Producto</th><th>Sistema</th><th>Físico</th><th>Dif.</th></tr>'+rs.slice(0,DLIM).map(r=>`<tr data-k="${esc(r.k)}"><td><b>${esc(r.c)}</b><br><small>${esc(r.d)}</small>${r.by&&byText(r.by)?`<br><span class="by">${byText(r.by)}</span>`:''}</td><td>${fmt(r.s)}</td><td>${r.f==null?'<small>sin contar</small>':'<b>'+fmt(r.f)+'</b>'}</td><td class="${r.f==null?'':cls(r.dif)}"><b>${r.f==null?'':sg(r.dif)}</b></td></tr>`).join('');
  $('dMore').textContent=rs.length>DLIM?`Mostrando ${DLIM} de ${rs.length}; use la búsqueda o los filtros.`:(rs.length?'':'Sin resultados.')}
 $('dFil').onclick=e=>{const b=e.target.closest('button');if(!b)return;dF=b.dataset.f;[...$('dFil').children].forEach(x=>x.classList.toggle('on',x===b));renderDif()};
 $('dBus').oninput=renderDif;
 $('dTab').onclick=e=>{const t=e.target.closest('tr[data-k]');if(!t)return;const p=idx.get(t.dataset.k),x=cnt[t.dataset.k];show('contar');select(p?p.c:(x?x.c:t.dataset.k))};
 
-/* ============ catálogo: importar ============ */
+/* ============ catálogo: importar (solo admin) ============ */
 let raw=null;
 async function readTable(f){if(!hasLib('XLSX'))throw new Error('No cargó la librería de Excel (¿sin internet?)');
  const buf=await f.arrayBuffer();let wb;
@@ -409,46 +604,83 @@ function buildCatalog(rows,ic,id,ie){const map=new Map(),out=[];let dup=0,skip=0
  for(const r of rows){const c=String(r[ic]==null?'':r[ic]).trim(),k=key(c);if(!k){skip++;continue}const e=num(r[ie]);
   if(map.has(k)){map.get(k).e=r2(map.get(k).e+e);dup++}else{const p={c,d:String(r[id]==null?'':r[id]).trim(),e:r2(e)};map.set(k,p);out.push(p)}}
  return{list:out,dup,skip}}
-$('bMap').onclick=()=>{if(!raw)return;const rows=raw.slice($('mHdr').checked?1:0),res=buildCatalog(rows,+$('mCod').value,+$('mDesc').value,+$('mExi').value);
+async function importCatalog(list,replace){const batch=uuid();let done=0;
+ const ok=list.filter(p=>p.c.length<=64);const long=list.length-ok.length;
+ for(let i=0;i<ok.length;i+=500){const rows=ok.slice(i,i+500).map(p=>({workspace_id:ws.id,code:p.c,normalized_code:key(p.c),description:p.d.slice(0,300),system_qty:p.e,import_batch:batch}));
+  const{error}=await sb.from('products').upsert(rows,{onConflict:'workspace_id,normalized_code'});if(error)throw error;done+=rows.length;$('mProg').textContent=`Importando… ${done}/${ok.length}`}
+ if(replace){const{error}=await sb.from('products').delete().eq('workspace_id',ws.id).or(`import_batch.is.null,import_batch.neq.${batch}`);if(error)throw error}
+ await loadProducts();return{n:ok.length,long}}
+$('bMap').onclick=async()=>{if(!raw||!isAdmin())return;const rows=raw.slice($('mHdr').checked?1:0),res=buildCatalog(rows,+$('mCod').value,+$('mDesc').value,+$('mExi').value);
  if(!res.list.length){toast('No se encontró ningún código con esas columnas',true);return}
- cat=res.list;rebuild();saveCat();raw=null;$('mapBox').style.display='none';renderCat();
- toast(`${cat.length} productos importados`+(res.dup?` · ${res.dup} repetidos sumados`:'')+(res.skip?` · ${res.skip} filas sin código`:''))};
-function renderCat(){const n=Object.keys(cnt).length;
- $('catInfo').innerHTML=cat.length?`<b>${cat.length}</b> productos en el catálogo · ${n} contados`+cat.slice(0,5).map(p=>`<div class="muted">${esc(p.c)} — ${esc(p.d)} (${fmt(p.e)})</div>`).join('')+(cat.length>5?'<div class="muted">…</div>':''):'<span class="muted">Aún no hay catálogo. Importe un archivo abajo.</span>';
- let used=0;try{used=(sget(K_CAT)||'').length+(sget(K_CNT)||'').length}catch(e){}
- $('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB usados · versión 3`}
+ if($('mRepl').checked&&!confirm('Se quitarán del catálogo los productos que no estén en el archivo. ¿Continuar?'))return;
+ $('bMap').disabled=true;
+ try{const r=await importCatalog(res.list,$('mRepl').checked);raw=null;$('mapBox').style.display='none';$('mProg').textContent='';
+  toast(`${r.n} productos importados`+(res.dup?` · ${res.dup} repetidos sumados`:'')+(res.skip?` · ${res.skip} filas sin código`:'')+(r.long?` · ${r.long} omitidos (código >64)`:''));renderCat()}
+ catch(e){toast('No se pudo importar: '+friendly(e),true)}finally{$('bMap').disabled=false}};
 
-/* ============ respaldo / reinicio ============ */
+/* ============ pestaña Datos ============ */
+function renderCat(){if(!ws)return;const n=Object.keys(cnt).length;
+ $('catInfo').innerHTML=cat.length?`<b>${cat.length}</b> productos en el catálogo · ${n} con conteo`+cat.slice(0,5).map(p=>`<div class="muted">${esc(p.c)} — ${esc(p.d)} (${fmt(p.e)})</div>`).join('')+(cat.length>5?'<div class="muted">…</div>':''):'<span class="muted">Aún no hay catálogo.'+(isAdmin()?' Importe un archivo abajo.':' Pida a un administrador que lo importe.')+'</span>';
+ $('wsName').textContent=ws.name;$('invCode').textContent=ws.invite_code;if(document.activeElement!==$('myName'))$('myName').value=ws.display_name||'';
+ $('memList').innerHTML='<b>Miembros</b>'+members.map(m=>`<div class="mem"><div class="d">${esc(m.display_name||'(sin nombre)')}${m.user_id===user.id?' <small>(usted)</small>':''}<br><small>${m.role==='admin'?'administrador':'miembro'}</small></div>${isAdmin()&&m.user_id!==user.id?`${m.role==='admin'?'':`<button class="sec" data-mkadmin="${esc(m.user_id)}">Hacer admin</button>`}<button class="red" data-rm="${esc(m.user_id)}">Quitar</button>`:''}</div>`).join('');
+ const cur=$('expSes').value;$('expSes').innerHTML=sessions.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.status==='open'?' (actual)':' · cerrado '+fdate(s.closed_at)}</option>`).join('');if(cur&&sessions.some(s=>s.id===cur))$('expSes').value=cur;else if(sess)$('expSes').value=sess.id;
+ let used=0;try{used=(sget(K_CACHE+ws.id)||'').length+(sget(pendKey())||'').length}catch(e){}
+ $('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 5 (multiusuario)`}
+$('bCopy').onclick=async()=>{try{await navigator.clipboard.writeText(ws.invite_code);toast('Código copiado')}catch(e){toast('Código: '+ws.invite_code)}};
+$('bRot').onclick=async()=>{if(!confirm('El código anterior dejará de funcionar. ¿Generar uno nuevo?'))return;const{data,error}=await sb.rpc('rotate_invite_code',{p_ws:ws.id});if(error)return toast(friendly(error),true);ws.invite_code=data;renderCat()};
+$('bName').onclick=async()=>{const n=$('myName').value.trim();if(!n)return;const{error}=await sb.from('workspace_members').update({display_name:n.slice(0,60)}).eq('workspace_id',ws.id).eq('user_id',user.id);if(error)return toast(friendly(error),true);ws.display_name=n;toast('Nombre actualizado');loadMembers().catch(()=>{})};
+$('memList').onclick=async e=>{const a=e.target.closest('[data-mkadmin]'),r=e.target.closest('[data-rm]');
+ if(a&&confirm('¿Dar permisos de administrador a este usuario?')){const{error}=await sb.from('workspace_members').update({role:'admin'}).eq('workspace_id',ws.id).eq('user_id',a.dataset.mkadmin);if(error)toast(friendly(error),true);loadMembers().catch(()=>{})}
+ if(r&&confirm('¿Quitar a este usuario de la empresa?')){const{error}=await sb.from('workspace_members').delete().eq('workspace_id',ws.id).eq('user_id',r.dataset.rm);if(error)toast(friendly(error),true);loadMembers().catch(()=>{})}};
+
+/* ============ respaldo JSON ============ */
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
 const today=()=>new Date().toISOString().slice(0,10);
-$('bBkp').onclick=()=>{const data={app:'conteo-inventario',v:3,fecha:new Date().toISOString(),cat:cat.map(p=>({c:p.c,d:p.d,e:p.e})),cnt};download(new Blob([JSON.stringify(data)],{type:'application/json'}),'respaldo_conteo_'+today()+'.json');toast('Respaldo exportado')};
+$('bBkp').onclick=()=>{const data={app:'conteo-inventario',v:5,empresa:ws.name,conteo:sess&&sess.name,fecha:new Date().toISOString(),
+  cat:cat.map(p=>({c:p.c,d:p.d,e:p.e})),entries:[...entries.values()].map(e=>({id:e.id,c:e.c,q:e.q,n:e.n,t:e.t,note:e.note}))};
+ download(new Blob([JSON.stringify(data)],{type:'application/json'}),'respaldo_conteo_'+today()+'.json');toast('Respaldo exportado')};
 $('bBkpIn').onclick=()=>$('bkpFile').click();
-$('bkpFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
- try{const d=JSON.parse(await f.text());if(!d||!Array.isArray(d.cat)||!d.cnt||typeof d.cnt!=='object'||Array.isArray(d.cnt))throw new Error('no es un respaldo válido');
-  const c=cleanCat(d.cat),n=cleanCnt(d.cnt);if(!confirm(`Este respaldo tiene ${c.length} productos y ${Object.keys(n).length} conteos.\n¿Reemplazar los datos actuales?`))return;
-  cat=c;cnt=n;rebuild();saveCat();saveCnt();clearSel();renderCat();toast('Respaldo importado')}
- catch(err){toast('Respaldo inválido: '+(err&&err.message||err),true)}};
+$('bkpFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f||!isAdmin())return;
+ try{const d=JSON.parse(await f.text());if(!d||!Array.isArray(d.cat))throw new Error('no es un respaldo válido');
+  const c=d.cat.map(x=>({c:String(x.c==null?'':x.c).trim(),d:String(x.d==null?'':x.d).trim(),e:num(x.e)})).filter(x=>key(x.c)&&x.c.length<=64);
+  let ents=[];if(Array.isArray(d.entries))ents=d.entries.filter(x=>x&&key(x.c)&&num(x.q)).map(x=>({id:/^[0-9a-f-]{36}$/i.test(x.id||'')?x.id:uuid(),code:String(x.c).trim(),qty:num(x.q),n:x.n||'respaldo'}));
+  else if(d.cnt&&typeof d.cnt==='object'&&!Array.isArray(d.cnt))ents=Object.values(d.cnt).filter(x=>x&&key(x.c)&&num(x.q)).map(x=>({id:uuid(),code:String(x.c).trim(),qty:num(x.q),n:'conteo local'}));
+  if(!confirm(`Este respaldo tiene ${c.length} productos y ${ents.length} movimientos.\n¿Agregarlos al catálogo y conteo actuales?`))return;
+  if(c.length)await importCatalog(c,false);
+  for(const x of ents){pending.push({id:x.id,ws:ws.id,sid:sess.id,code:x.code.slice(0,64),qty:r2(x.qty),note:('Respaldo: '+x.n).slice(0,200),t:Date.now(),name:ws.display_name})}
+  savePending();refresh();await flush();toast('Respaldo importado')}
+ catch(err){toast('Respaldo inválido: '+friendly(err),true)}};
+
+/* ============ cerrar y reiniciar conteo (solo admin, con 'autorizar') ============ */
 const resetOk=()=>norm($('mWord').value)==='AUTORIZAR';
 function modalClose(){$('modal').classList.remove('on');$('mWord').value='';$('mOk').disabled=true}
-$('bReset').onclick=()=>{$('mWord').value='';$('mOk').disabled=true;$('modal').classList.add('on');setTimeout(()=>$('mWord').focus(),50)};
+$('bReset').onclick=()=>{if(!isAdmin())return;$('mSes').textContent=sess?sess.name:'';$('mWord').value='';$('mOk').disabled=true;$('modal').classList.add('on');setTimeout(()=>$('mWord').focus(),50)};
 $('mWord').oninput=()=>{$('mOk').disabled=!resetOk()};
-$('mWord').onkeydown=e=>{if(e.key==='Enter'&&resetOk())$('mOk').click();};
+$('mWord').onkeydown=e=>{if(e.key==='Enter'&&resetOk())$('mOk').click()};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('modal').classList.contains('on'))modalClose()});
 $('mCancel').onclick=modalClose;
 $('modal').onclick=e=>{if(e.target===$('modal'))modalClose()};
-$('mOk').onclick=()=>{if(!resetOk())return;
- [K_CAT,K_CNT,OLD_CAT,OLD_CNT].forEach(sdel);try{Object.keys(localStorage).filter(k=>k.startsWith('inv3_dañado_')).forEach(k=>localStorage.removeItem(k))}catch(e){}
- cat=[];cnt={};cur=null;rebuild();location.reload()};
+$('mOk').onclick=async()=>{if(!resetOk()||!isAdmin())return;$('mOk').disabled=true;
+ try{const{error}=await sb.rpc('close_session',{p_ws:ws.id,p_new_name:null});if(error)throw error;modalClose();clearSel();await syncSessions();toast('Conteo cerrado. Nuevo conteo iniciado.')}
+ catch(e){toast('No se pudo reiniciar: '+friendly(e),true);$('mOk').disabled=!resetOk()}};
 
-/* ============ exportar .xlsx ============ */
-function buildWorkbook(){const A=[['Código','Descripción','Existencia sistema','Conteo físico','Diferencia']];
- for(const p of cat){const q=cnt[p._k]?cnt[p._k].q:0;A.push([p.c,p.d,p.e,q,r2(q-p.e)])}
- const B=[['Código','Conteo físico']];for(const [k,x] of Object.entries(cnt))if(!idx.has(k))B.push([x.c,x.q]);
- const wb=XLSX.utils.book_new(),w1=XLSX.utils.aoa_to_sheet(A),w2=XLSX.utils.aoa_to_sheet(B);
- w1['!cols']=[{wch:16},{wch:44},{wch:12},{wch:12},{wch:12}];w2['!cols']=[{wch:20},{wch:14}];
- XLSX.utils.book_append_sheet(wb,w1,'Conteo');XLSX.utils.book_append_sheet(wb,w2,'No en catálogo');return wb}
-$('bExp').onclick=()=>{if(!hasLib('XLSX')){toast('No cargó la librería de Excel (¿sin internet?)',true);return}
- try{XLSX.writeFile(buildWorkbook(),'conteo_'+today()+'.xlsx');toast('Archivo exportado')}catch(e){toast('Error al exportar: '+e.message,true)}};
+/* ============ exportar .xlsx (datos compartidos) ============ */
+async function exportData(sid){let ents,sname;
+ if(sess&&sid===sess.id){ents=[...entries.values()];sname=sess.name}
+ else{const rows=await fetchAll(()=>sb.from('count_entries').select(E_COLS).eq('session_id',sid).order('created_at').order('id'));ents=rows.map(toEntry);sname=(sessions.find(s=>s.id===sid)||{}).name||'conteo'}
+ const tot={};for(const e of ents){const k=key(e.c);tot[k]=r2((tot[k]||0)+e.q)}
+ const A=[['Código','Descripción','Existencia sistema','Conteo físico','Diferencia']];
+ for(const p of cat){const q=tot[p._k]||0;A.push([p.c,p.d,p.e,q,r2(q-p.e)])}
+ const B=[['Código','Conteo físico']];for(const k of Object.keys(tot))if(!idx.has(k)){const e=ents.find(x=>key(x.c)===k);B.push([e?e.c:k,tot[k]])}
+ const C=[['Código','Cantidad','Contado por','Fecha','Nota']];for(const e of ents.slice().sort((a,b)=>a.t-b.t))C.push([e.c,e.q,e.n,new Date(e.t).toLocaleString('es-MX'),e.note||'']);
+ const wb=XLSX.utils.book_new(),w1=XLSX.utils.aoa_to_sheet(A),w2=XLSX.utils.aoa_to_sheet(B),w3=XLSX.utils.aoa_to_sheet(C);
+ w1['!cols']=[{wch:16},{wch:44},{wch:12},{wch:12},{wch:12}];w2['!cols']=[{wch:20},{wch:14}];w3['!cols']=[{wch:16},{wch:10},{wch:20},{wch:18},{wch:30}];
+ XLSX.utils.book_append_sheet(wb,w1,'Conteo');XLSX.utils.book_append_sheet(wb,w2,'No en catálogo');XLSX.utils.book_append_sheet(wb,w3,'Movimientos');
+ return{wb,name:'conteo_'+String(sname).replace(/[^\w\-]+/g,'_')+'_'+today()+'.xlsx'}}
+async function doExport(sid){if(!hasLib('XLSX')){toast('No cargó la librería de Excel (¿sin internet?)',true);return}
+ try{const r=await exportData(sid||(sess&&sess.id));XLSX.writeFile(r.wb,r.name);toast('Archivo exportado')}catch(e){toast('Error al exportar: '+friendly(e),true)}}
+$('bExp').onclick=()=>doExport(sess&&sess.id);
+$('bExp2').onclick=()=>doExport($('expSes').value);
 
 /* ============ etiquetas QR ============ */
 function genLabels(){if(!hasLib('qrcode')){toast('No cargó el generador QR (¿sin internet?)',true);return}
@@ -460,12 +692,75 @@ function genLabels(){if(!hasLib('qrcode')){toast('No cargó el generador QR (¿s
 $('bGen').onclick=genLabels;$('eCols').onchange=()=>$('labels').style.setProperty('--cols',$('eCols').value);
 $('bPrint').onclick=()=>{if(!$('labels').children.length)genLabels();window.print()};
 
+/* ============ autenticación ============ */
+let aMode='in';
+function setAMode(m){aMode=m;$('aTabIn').classList.toggle('on',m==='in');$('aTabUp').classList.toggle('on',m==='up');$('aNameBox').classList.toggle('hide',m!=='up');$('aGo').textContent=m==='in'?'Ingresar':'Crear cuenta';$('aPass').autocomplete=m==='in'?'current-password':'new-password';$('aMsg').textContent='';$('aMsg').className='err'}
+$('aTabIn').onclick=()=>setAMode('in');$('aTabUp').onclick=()=>setAMode('up');
+const aMsg=(t,ok)=>{$('aMsg').textContent=t;$('aMsg').className=ok?'ok':'err'};
+$('aGo').onclick=async()=>{const email=$('aEmail').value.trim(),pass=$('aPass').value,name=$('aName').value.trim();
+ if(!email||!pass)return aMsg('Escriba correo y contraseña');if(aMode==='up'){if(!name)return aMsg('Escriba su nombre');if(pass.length<8)return aMsg('La contraseña debe tener al menos 8 caracteres')}
+ $('aGo').disabled=true;aMsg('');
+ try{if(aMode==='in'){const{error}=await sb.auth.signInWithPassword({email,password:pass});if(error)throw error}
+  else{const{data,error}=await sb.auth.signUp({email,password:pass,options:{data:{display_name:name},emailRedirectTo:location.origin+location.pathname}});if(error)throw error;
+   if(!data.session){aMsg('✔ Cuenta creada. Revise su correo para confirmarla y luego use «Ingresar».',true)}}}
+ catch(e){aMsg(friendly(e))}finally{$('aGo').disabled=false}};
+$('aPass').onkeydown=$('aEmail').onkeydown=e=>{if(e.key==='Enter')$('aGo').click()};
+$('aForgot').onclick=async()=>{const email=$('aEmail').value.trim();if(!email)return aMsg('Escriba su correo arriba y vuelva a tocar este botón');
+ const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});aMsg(error?friendly(error):'✔ Si el correo existe, recibirá un enlace para cambiar la contraseña.',!error)};
+$('rGo').onclick=async()=>{const p=$('rPass').value;if(p.length<8){$('rMsg').textContent='Mínimo 8 caracteres';return}
+ const{error}=await sb.auth.updateUser({password:p});if(error){$('rMsg').textContent=friendly(error);return}toast('Contraseña actualizada');await enter()};
+
+function resetSession(){stopRealtime();clearInterval(pollT);ws=null;sess=null;sessions=[];members=[];cat=[];idx=new Map();entries=new Map();pending=[];cnt={};cur=null;lastEntryT=lastProdT=0;rebuild();document.body.classList.remove('is-admin')}
+async function signOut(){const n=pending.filter(e=>!e.failed).length;if(n&&!confirm(`Hay ${n} movimientos sin enviar. Se conservan en este teléfono y se enviarán cuando vuelva a ingresar. ¿Salir?`))return;
+ try{await sb.auth.signOut()}catch(e){}resetSession();user=null;screen('scrAuth')}
+$('bOut').onclick=signOut;$('oOut').onclick=signOut;
+
+async function enter(){ // después de iniciar sesión
+ const{data:{session}}=await sb.auth.getSession();user=session?session.user:null;if(!user){screen('scrAuth');return}
+ resetSession();
+ try{const{data,error,status}=await sb.from('workspace_members').select('workspace_id,role,display_name,workspaces(id,name,invite_code)').eq('user_id',user.id).order('created_at');if(error){error.status=status;throw error}mems=data.filter(m=>m.workspaces)}
+ catch(e){if(netFail(e,e.status)){const last=sget(K_WS+user.id),c=jget('inv5_mem_'+user.id,[],Array.isArray);mems=c;if(!mems.length){screen('scrAuth');aMsg('Sin conexión. Conéctese para ingresar la primera vez.');return}}else{toast(friendly(e),true);mems=[]}}
+ sset('inv5_mem_'+user.id,JSON.stringify(mems));
+ const last=sget(K_WS+user.id),m=mems.find(x=>x.workspace_id===last)||(mems.length===1?mems[0]:null);
+ if(m)return openWorkspace(m);
+ showOnboarding()}
+function showOnboarding(){$('oUser').textContent=(user.user_metadata&&user.user_metadata.display_name)||'';$('oName').value=(user.user_metadata&&user.user_metadata.display_name)||'';$('oMsg').textContent='';
+ $('oPick').classList.toggle('hide',!mems.length);$('oList').innerHTML=mems.map(m=>`<button class="sec" style="width:100%;margin-top:6px" data-ws="${esc(m.workspace_id)}">${esc(m.workspaces.name)} (${m.role==='admin'?'admin':'miembro'})</button>`).join('');screen('scrOnb')}
+$('oList').onclick=e=>{const b=e.target.closest('[data-ws]');if(b)openWorkspace(mems.find(m=>m.workspace_id===b.dataset.ws))};
+const oName=()=>$('oName').value.trim()||(user.user_metadata&&user.user_metadata.display_name)||(user.email||'').split('@')[0];
+$('oCreate').onclick=async()=>{const n=$('oWs').value.trim();if(n.length<2)return $('oMsg').textContent='Escriba el nombre de la empresa';$('oCreate').disabled=true;
+ try{const{error}=await sb.rpc('create_workspace',{p_name:n,p_display_name:oName()});if(error)throw error;await enter()}catch(e){$('oMsg').textContent=friendly(e)}finally{$('oCreate').disabled=false}};
+$('oJoin').onclick=async()=>{const c=$('oCode').value.trim();if(!c)return $('oMsg').textContent='Escriba el código de invitación';$('oJoin').disabled=true;
+ try{const{error}=await sb.rpc('join_workspace',{p_code:c,p_display_name:oName()});if(error)throw error;await enter()}catch(e){$('oMsg').textContent=friendly(e)}finally{$('oJoin').disabled=false}};
+function leaveWorkspace(){sdel(K_WS+(user&&user.id));resetSession();enter()}
+$('bSwitch').onclick=()=>{sdel(K_WS+user.id);const u=user;resetSession();user=u;showOnboarding()};
+
+async function openWorkspace(m){
+ stopRealtime();clearInterval(pollT);
+ ws={id:m.workspace_id,name:m.workspaces.name,invite_code:m.workspaces.invite_code,role:m.role,display_name:m.display_name};
+ sset(K_WS+user.id,ws.id);cat=[];idx=new Map();entries=new Map();sess=null;cnt={};lastEntryT=lastProdT=0;rebuild();
+ pending=loadPending();loadCache();derive();
+ screen('scrMain');show('contar');renderTop();renderBadge();refresh();
+ await initialLoad();startRealtime();startPoll();flush()}
+
 /* ============ arranque ============ */
-try{loadAll()}catch(e){cat=[];cnt={};rebuild();banner('⚠️ Error al cargar datos guardados: '+esc(e.message))}
-const missing=[['XLSX','Excel'],['Tesseract','lectura de texto'],['Html5Qrcode','escáner QR'],['qrcode','etiquetas QR']].filter(x=>!hasLib(x[0])).map(x=>x[1]);
-if(missing.length)banner('⚠️ No cargaron algunas librerías ('+missing.join(', ')+'). Se necesita internet la primera vez; recargue la página.');
-renderCat();
-window.APP={get cat(){return cat},get cnt(){return cnt},get cur(){return cur},ocrMatches,tokens,key,search,select,ocrPipeline,buildWorkbook,loadAll,difRows};
+async function boot(){
+ const missing=[['supabase','conexión'],['XLSX','Excel'],['Tesseract','lectura de texto'],['Html5Qrcode','escáner QR'],['qrcode','etiquetas QR']].filter(x=>!hasLib(x[0])).map(x=>x[1]);
+ if(missing.length)banner('⚠️ No cargaron algunas librerías ('+missing.join(', ')+'). Se necesita internet; recargue la página.');
+ if(!hasLib('supabase')){screen('scrAuth');aMsg('No se pudo cargar la librería de conexión. Revise su internet y recargue.');return}
+ try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})}
+ catch(e){screen('scrAuth');aMsg('Error de configuración: '+e.message);return}
+ window.APP.sb=sb;
+ sb.auth.onAuthStateChange((ev,session)=>{setTimeout(()=>{
+   if(ev==='PASSWORD_RECOVERY'){screen('scrRecov');return}
+   if(ev==='SIGNED_IN'&&session&&(!user||user.id!==session.user.id))enter();
+   if(ev==='SIGNED_OUT'&&user){resetSession();user=null;screen('scrAuth')}},0)});
+ let session=null;try{const r=await sb.auth.getSession();session=r.data&&r.data.session}catch(e){}
+ if(session)await enter();else if($('scrRecov').classList.contains('hide'))screen('scrAuth')}
+window.APP={get cat(){return cat},get cnt(){return cnt},get cur(){return cur},get pending(){return pending},get entries(){return entries},get ws(){return ws},get sess(){return sess},get net(){return net},get rtOK(){return rtOK},
+ ocrMatches,tokens,key,search,select,ocrPipeline,exportData,flush,pollOnce,derive,difRows};
+boot();
+
 </script>
 </body>
 </html>
