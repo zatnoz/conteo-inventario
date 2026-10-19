@@ -235,9 +235,10 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
  <div class="card admin-only">
   <h2>Importar catálogo</h2>
   <div class="muted">Archivo Excel (.xlsx/.xls) o CSV con código, descripción y existencia (p. ej. exportado de Microsip). Solo administradores.</div>
+  <div class="muted" id="layInfo" style="margin-top:6px"></div>
   <input type="file" id="catFile" accept=".xlsx,.xls,.csv,.txt" style="margin-top:8px">
   <div id="mapBox" style="display:none;margin-top:12px">
-   <label><input type="checkbox" id="mHdr" checked style="width:24px;height:24px;vertical-align:middle"> La primera fila es encabezado</label>
+   <label>Fila de encabezados<select id="mHrow"></select></label>
    <div class="mapgrid">
     <label>Código<select id="mCod"></select></label>
     <label>Descripción<select id="mDesc"></select></label>
@@ -709,42 +710,84 @@ $('dBus').oninput=renderDif;
 $('dTab').onclick=e=>{const t=e.target.closest('tr[data-k]');if(!t)return;const p=idx.get(t.dataset.k),x=cnt[t.dataset.k];show('contar');select(p?p.c:(x?x.c:t.dataset.k))};
 
 /* ============ catálogo: importar (solo admin) ============ */
-let raw=null;
+let raw=null,tbl=null;   // tbl = hoja original completa (para conservar el formato al exportar)
+const isBlank=v=>v==null||String(v).trim()==='';
 async function readTable(f){if(!hasLib('XLSX'))throw new Error('No cargó la librería de Excel (¿sin internet?)');
- const buf=await f.arrayBuffer();let wb;
- if(/\.(csv|txt)$/i.test(f.name)||f.type==='text/csv'){let t=new TextDecoder('utf-8').decode(buf);if(t.includes('\uFFFD'))t=new TextDecoder('windows-1252').decode(buf);wb=XLSX.read(t.replace(/^\uFEFF/,''),{type:'string',raw:true})}
- else wb=XLSX.read(new Uint8Array(buf),{type:'array'});
- for(const n of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:true}).filter(r=>Array.isArray(r)&&r.some(v=>String(v).trim()!==''));if(rows.length)return rows}
- return[]}
+ const buf=await f.arrayBuffer();let wb,csv=false;
+ if(/\.(csv|txt)$/i.test(f.name)||f.type==='text/csv'){csv=true;let t=new TextDecoder('utf-8').decode(buf);if(t.includes('\uFFFD'))t=new TextDecoder('windows-1252').decode(buf);wb=XLSX.read(t.replace(/^\uFEFF/,''),{type:'string',raw:true})}
+ else wb=XLSX.read(new Uint8Array(buf),{type:'array',cellNF:true,cellStyles:true});
+ for(const n of wb.SheetNames){const sh=wb.Sheets[n];if(!sh||!sh['!ref'])continue;const rg=XLSX.utils.decode_range(sh['!ref']);
+  const grid=[],fc={};
+  for(let r=0;r<=rg.e.r;r++){const row=[];for(let c=0;c<=rg.e.c;c++){const cl=sh[XLSX.utils.encode_cell({r,c})];let v=null;
+    if(cl&&cl.t!=='e'&&cl.t!=='z'){v=cl.v;if(v instanceof Date)v=cl.w||v.toISOString();if(cl.t==='n'&&cl.z&&cl.z!=='General'){const m=fc[c]||(fc[c]={});m[cl.z]=(m[cl.z]||0)+1}}
+    row.push(v)}
+   while(row.length&&isBlank(row[row.length-1]))row.pop();grid.push(row)}
+  while(grid.length&&!grid[grid.length-1].length)grid.pop();
+  if(!grid.some(r=>r.some(v=>!isBlank(v))))continue;
+  const fmts={};for(const c in fc)fmts[c]=Object.entries(fc[c]).sort((a,b)=>b[1]-a[1])[0][0];
+  const ncols=Math.max(1,...grid.map(r=>r.length));
+  return{grid,ncols,fmts,sheet:(csv?f.name.replace(/\.[^.]+$/,''):n).slice(0,31)||'Catalogo',file:f.name.slice(0,255),
+   cols:(sh['!cols']||[]).slice(0,ncols).map(x=>x?(x.wch!=null?{wch:x.wch}:x.wpx!=null?{wpx:x.wpx}:x.width!=null?{wch:x.width}:null):null),
+   merges:(sh['!merges']||[]).map(m=>({s:{r:m.s.r,c:m.s.c},e:{r:m.e.r,c:m.e.c}}))}}
+ return null}
+// texto del código sin perder ceros a la izquierda (celdas numéricas con formato 00000)
+function cellText(v,c){if(v==null)return'';if(typeof v==='number'){const z=tbl&&tbl.fmts[c];if(z&&/^0+$/.test(z))return String(Math.round(v)).padStart(z.length,'0');return String(v)}return String(v).trim()}
+const HDR_CODE=/c[oó]d|clave|sku|art[ií]c|n[uú]m.*parte|parte/i,HDR_DESC=/desc|nombre|producto|concepto/i,HDR_QTY=/exist|stock|cant|inventario|saldo/i;
+function guessHeader(g){const lim=Math.min(g.length,25);
+ for(let r=0;r<lim;r++){const t=g[r].filter(v=>!isBlank(v));if(t.length>=2&&t.every(v=>typeof v==='string')&&g[r].some(v=>typeof v==='string'&&HDR_CODE.test(v)))return r}
+ for(let r=0;r<lim;r++){const t=g[r].filter(v=>!isBlank(v));if(t.length>=2&&t.every(v=>typeof v==='string'))return r}
+ const f=g.findIndex(r=>r.some(v=>!isBlank(v)));return f<0?0:f}
 $('catFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
- try{raw=await readTable(f);if(raw.length<1)throw new Error('El archivo está vacío');setupMap()}catch(err){toast('No se pudo leer: '+(err&&err.message||err),true)}};
+ try{tbl=await readTable(f);if(!tbl)throw new Error('El archivo está vacío');
+  const h=guessHeader(tbl.grid);
+  $('mHrow').innerHTML='<option value="-1">Sin encabezados (todas son datos)</option>'+tbl.grid.slice(0,25).map((r,i)=>r.some(v=>!isBlank(v))?`<option value="${i}">Fila ${i+1}: ${esc(r.filter(v=>!isBlank(v)).slice(0,4).join(' | ').slice(0,50))}</option>`:'').join('');
+  $('mHrow').value=String(h);setupMap()}catch(err){tbl=null;toast('No se pudo leer: '+(err&&err.message||err),true)}};
 const colName=j=>{let s='',n=j+1;while(n>0){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26)}return s};
-function setupMap(){const ncol=Math.max(...raw.slice(0,50).map(r=>r.length)),hdr=raw[0].map(v=>String(v));
- const opts=Array.from({length:ncol},(_,j)=>`<option value="${j}">${colName(j)}${$('mHdr').checked&&hdr[j]?' – '+esc(hdr[j].slice(0,30)):''}</option>`).join('');
+const hRow=()=>+$('mHrow').value;
+function setupMap(){const h=hRow(),hdr=h>=0?(tbl.grid[h]||[]).map(v=>v==null?'':String(v)):[];raw=tbl.grid.slice(h+1);
+ const ncol=tbl.ncols;
+ const opts=Array.from({length:ncol},(_,j)=>`<option value="${j}">${colName(j)}${hdr[j]?' – '+esc(hdr[j].slice(0,30)):''}</option>`).join('');
  ['mCod','mDesc','mExi'].forEach(id=>$(id).innerHTML=opts);
- const g=re=>hdr.findIndex(h=>re.test(h));let a=g(/c[oó]d|clave|sku|art[ií]c|n[uú]m.*parte|parte/i),b=g(/desc|nombre|producto|concepto/i),c=g(/exist|stock|cant|inventario|saldo/i);
+ const g=re=>hdr.findIndex(x=>re.test(x));let a=g(/c[oó]d|clave|sku/i);if(a<0)a=g(HDR_CODE);let b=g(HDR_DESC),c=g(HDR_QTY);
  if(a<0)a=0;if(b<0||b===a)b=ncol>1?(a===1?0:1):0;if(c<0||c===a||c===b)c=[0,1,2,3].find(x=>x<ncol&&x!==a&&x!==b);if(c==null)c=a;
  $('mCod').value=a;$('mDesc').value=b;$('mExi').value=c;$('mapBox').style.display='block';prevMap()}
-function prevMap(){if(!raw)return;const s=$('mHdr').checked?1:0,a=+$('mCod').value,b=+$('mDesc').value,c=+$('mExi').value;
- $('mPrev').innerHTML='<table><tr><th>Código</th><th>Descripción</th><th>Existencia</th></tr>'+raw.slice(s,s+3).map(r=>`<tr><td>${esc(r[a])}</td><td style="text-align:left">${esc(r[b])}</td><td>${esc(r[c])}</td></tr>`).join('')+'</table><small>'+Math.max(0,raw.length-s)+' filas</small>'}
-['mCod','mDesc','mExi'].forEach(id=>$(id).onchange=prevMap);$('mHdr').onchange=()=>{if(raw){const v=[$('mCod').value,$('mDesc').value,$('mExi').value];setupMap();['mCod','mDesc','mExi'].forEach((id,i)=>$(id).value=v[i]);prevMap()}};
+function prevMap(){if(!raw)return;const a=+$('mCod').value,b=+$('mDesc').value,c=+$('mExi').value,data=raw.filter(r=>r.some(v=>!isBlank(v)));
+ $('mPrev').innerHTML='<table><tr><th>Código</th><th>Descripción</th><th>Existencia</th></tr>'+data.slice(0,3).map(r=>`<tr><td>${esc(cellText(r[a],a))}</td><td style="text-align:left">${esc(r[b])}</td><td>${esc(r[c])}</td></tr>`).join('')+'</table><small>'+data.length+` filas de datos · hoja «${esc(tbl.sheet)}» · ${tbl.ncols} columnas (se conservan todas para exportar)</small>`}
+['mCod','mDesc','mExi'].forEach(id=>$(id).onchange=prevMap);
+$('mHrow').onchange=()=>{if(tbl){const v=[$('mCod').value,$('mDesc').value,$('mExi').value];setupMap();['mCod','mDesc','mExi'].forEach((id,i)=>$(id).value=v[i]);prevMap()}};
 function buildCatalog(rows,ic,id,ie){const map=new Map(),out=[];let dup=0,skip=0;
- for(const r of rows){const c=String(r[ic]==null?'':r[ic]).trim(),k=key(c);if(!k){skip++;continue}const e=num(r[ie]);
+ for(const r of rows){if(!r.some(v=>!isBlank(v)))continue;const c=cellText(r[ic],ic),k=key(c);if(!k){skip++;continue}const e=num(r[ie]);
   if(map.has(k)){map.get(k).e=r2(map.get(k).e+e);dup++}else{const p={c,d:String(r[id]==null?'':r[id]).trim(),e:r2(e)};map.set(k,p);out.push(p)}}
  return{list:out,dup,skip}}
-async function importCatalog(list,replace){const batch=uuid();let done=0;
+async function saveLayout(batch,lay){   // guarda la estructura original del archivo (para exportar con el mismo formato)
+ const{data,error}=await sb.from('catalog_layouts').insert({workspace_id:ws.id,import_batch:batch,file_name:lay.file,sheet_name:lay.sheet,header_row:lay.h,
+   preamble:lay.h>0?tbl.grid.slice(0,lay.h):[],headers:lay.h>=0?(tbl.grid[lay.h]||[]):[],ncols:tbl.ncols,code_col:lay.ic,desc_col:lay.id,qty_col:lay.ie,
+   col_widths:tbl.cols,merges:tbl.merges,formats:tbl.fmts,row_count:raw.length}).select('id').single();
+ if(error)throw error;const lid=data.id;
+ const rows=[];raw.forEach((r,i)=>{if(r.some(v=>!isBlank(v))){const k=key(cellText(r[lay.ic],lay.ic));rows.push({layout_id:lid,workspace_id:ws.id,row_index:i,normalized_code:k?k.slice(0,128):null,cells:r})}});
+ for(let i=0;i<rows.length;i+=500){const{error:e2}=await sb.from('catalog_rows').insert(rows.slice(i,i+500));if(e2)throw e2}
+ const{error:e3}=await sb.from('catalog_layouts').update({complete:true}).eq('id',lid);if(e3)throw e3;
+ await sb.from('catalog_layouts').delete().eq('workspace_id',ws.id).neq('id',lid);   // solo se conserva el formato más reciente
+ layMeta=undefined;layTry=0;return lid}
+async function importCatalog(list,replace,lay){const batch=uuid();let done=0,layErr=null;
  const ok=list.filter(p=>p.c.length<=64);const long=list.length-ok.length;
  for(let i=0;i<ok.length;i+=500){const rows=ok.slice(i,i+500).map(p=>({workspace_id:ws.id,code:p.c,normalized_code:key(p.c),description:p.d.slice(0,300),system_qty:p.e,import_batch:batch}));
   const{error}=await sb.from('products').upsert(rows,{onConflict:'workspace_id,normalized_code'});if(error)throw error;done+=rows.length;$('mProg').textContent=`Importando… ${done}/${ok.length}`}
  if(replace){const{error}=await sb.rpc('finish_import',{p_ws:ws.id,p_batch:batch});if(error)throw error}
- await loadProducts();return{n:ok.length,long}}
-$('bMap').onclick=async()=>{if(!raw||!isAdmin())return;const rows=raw.slice($('mHdr').checked?1:0),res=buildCatalog(rows,+$('mCod').value,+$('mDesc').value,+$('mExi').value);
+ if(lay){$('mProg').textContent='Guardando el formato original del archivo…';try{await saveLayout(batch,lay)}catch(e){layErr=e}}
+ await loadProducts();return{n:ok.length,long,layErr}}
+$('bMap').onclick=async()=>{if(!raw||!tbl||!isAdmin())return;const ic=+$('mCod').value,id=+$('mDesc').value,ie=+$('mExi').value,res=buildCatalog(raw,ic,id,ie);
  if(!res.list.length){toast('No se encontró ningún código con esas columnas',true);return}
  if($('mRepl').checked&&!confirm('Se quitarán del catálogo los productos que no estén en el archivo. ¿Continuar?'))return;
  $('bMap').disabled=true;
- try{const r=await importCatalog(res.list,$('mRepl').checked);raw=null;$('mapBox').style.display='none';$('mProg').textContent='';
-  toast(`${r.n} productos importados`+(res.dup?` · ${res.dup} repetidos sumados`:'')+(res.skip?` · ${res.skip} filas sin código`:'')+(r.long?` · ${r.long} omitidos (código >64)`:''));renderCat()}
+ try{const r=await importCatalog(res.list,$('mRepl').checked,{file:tbl.file,sheet:tbl.sheet,h:hRow(),ic,id,ie});raw=null;tbl=null;$('mapBox').style.display='none';$('mProg').textContent='';
+  toast(`${r.n} productos importados`+(res.dup?` · ${res.dup} repetidos sumados`:'')+(res.skip?` · ${res.skip} filas sin código`:'')+(r.long?` · ${r.long} omitidos (código >64)`:'')+(r.layErr?' · ⚠️ no se pudo guardar el formato original: '+friendly(r.layErr):''),!!r.layErr);renderCat()}
  catch(e){toast('No se pudo importar: '+friendly(e),true)}finally{$('bMap').disabled=false}};
+let layBusy=false,layTry=0,layMeta;  // undefined = sin consultar; null = no hay formato guardado
+async function loadLayMeta(){if(!ws)return null;const{data,error}=await sb.from('catalog_layouts').select('id,file_name,sheet_name,created_at,ncols,row_count').eq('workspace_id',ws.id).eq('complete',true).order('created_at',{ascending:false}).limit(1);if(error)throw error;layMeta=data[0]||null;return layMeta}
+function renderLay(){const el=$('layInfo');if(!el)return;
+ if(layMeta===undefined){el.textContent='';if(!layBusy&&Date.now()-layTry>30000){layBusy=true;layTry=Date.now();loadLayMeta().then(renderLay).catch(()=>{}).finally(()=>{layBusy=false})}return}
+ el.innerHTML=layMeta?`📄 Formato para exportar: <b>${esc(layMeta.file_name||'')}</b> · hoja «${esc(layMeta.sheet_name)}» · ${layMeta.ncols} columnas · importado ${fdate(layMeta.created_at)}. El Excel exportado respeta ese orden y agrega «Contado», «Diferencia» y «Estado».`:'📄 Aún no hay formato original guardado: el Excel se exporta en el formato estándar de la app. Vuelva a importar su catálogo (admin) para que la exportación respete su archivo.'}
 
 /* ============ pestaña Datos ============ */
 function renderCat(){if(!ws)return;const n=Object.keys(cnt).length;
@@ -753,7 +796,7 @@ function renderCat(){if(!ws)return;const n=Object.keys(cnt).length;
  $('memList').innerHTML='<b>Miembros</b>'+members.map(m=>`<div class="mem"><div class="d">${esc(m.display_name||'(sin nombre)')}${m.user_id===user.id?' <small>(usted)</small>':''}<br><small>${m.role==='admin'?'administrador':'miembro'}</small></div>${isAdmin()&&m.user_id!==user.id?`${m.role==='admin'?'':`<button class="sec" data-mkadmin="${esc(m.user_id)}">Hacer admin</button>`}<button class="red" data-rm="${esc(m.user_id)}">Quitar</button>`:''}</div>`).join('');
  const cur=$('expSes').value;$('expSes').innerHTML=sessions.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.status==='open'?' (actual)':' · cerrado '+fdate(s.closed_at)}</option>`).join('');if(cur&&sessions.some(s=>s.id===cur))$('expSes').value=cur;else if(sess)$('expSes').value=sess.id;
  let used=0;try{used=(sget(K_CACHE+ws.id)||'').length+(sget(pendKey())||'').length}catch(e){}
- $('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 7 (app instalable)`}
+ $('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 8 (exporta con el formato original)`;renderLay()}
 $('bCopy').onclick=async()=>{try{await navigator.clipboard.writeText(ws.invite_code);toast('Código copiado')}catch(e){toast('Código: '+ws.invite_code)}};
 $('bRot').onclick=async()=>{if(!confirm('El código anterior dejará de funcionar. ¿Generar uno nuevo?'))return;const{data,error}=await sb.rpc('rotate_invite_code',{p_ws:ws.id});if(error)return toast(friendly(error),true);ws.invite_code=data;renderCat()};
 $('bName').onclick=async()=>{const n=$('myName').value.trim();if(!n)return;const{error}=await sb.from('workspace_members').update({display_name:n.slice(0,60)}).eq('workspace_id',ws.id).eq('user_id',user.id);if(error)return toast(friendly(error),true);ws.display_name=n;toast('Nombre actualizado');loadMembers().catch(()=>{})};
@@ -793,20 +836,52 @@ $('mOk').onclick=async()=>{if(!resetOk()||!isAdmin())return;$('mOk').disabled=tr
  catch(e){toast('No se pudo reiniciar: '+friendly(e),true);$('mOk').disabled=!resetOk()}};
 
 /* ============ exportar .xlsx (datos compartidos) ============ */
+function cellObj(v,z){if(v==null||v==='')return null;if(typeof v==='number')return z?{t:'n',v,z}:{t:'n',v};if(typeof v==='boolean')return{t:'b',v};return{t:'s',v:String(v)}}
+async function layoutSheet(tot,firstEnt){   // reproduce la hoja original del catálogo + Contado / Diferencia / Estado
+ const{data:L,error}=await sb.from('catalog_layouts').select('*').eq('workspace_id',ws.id).eq('complete',true).order('created_at',{ascending:false}).limit(1);
+ if(error)throw error;const lay=L[0];if(!lay)return null;
+ const rows=await fetchAll(()=>sb.from('catalog_rows').select('row_index,normalized_code,cells').eq('layout_id',lay.id).order('row_index'));
+ const sh={},F=lay.formats||{},nc=lay.ncols,C1=nc,C2=nc+1,C3=nc+2;let maxR=0;
+ const put=(r,c,v,z)=>{const o=cellObj(v,z);if(o){sh[XLSX.utils.encode_cell({r,c})]=o;if(r>maxR)maxR=r}};
+ const putRow=(r,arr)=>{(arr||[]).forEach((v,c)=>put(r,c,v,typeof v==='number'?F[c]:null))};
+ (lay.preamble||[]).forEach((row,r)=>putRow(r,row));
+ const h=lay.header_row;if(h>=0){putRow(h,lay.headers);put(h,C1,'Contado');put(h,C2,'Diferencia');put(h,C3,'Estado')}
+ const base=h+1,seen=new Map(),inLay=new Set();
+ const estado=(q,counted,dif)=>!counted?'Sin contar':dif===0?'Correcto':dif<0?'Faltante':'Sobrante';
+ for(const x of rows){const r=base+x.row_index;putRow(r,x.cells);const k=x.normalized_code;if(!k)continue;
+  if(seen.has(k)){put(r,C3,'Código repetido (ver fila '+(seen.get(k)+1)+')');continue}seen.set(k,r);inLay.add(k);
+  const p=idx.get(k),counted=k in tot,q=tot[k]||0;
+  if(!p){put(r,C1,q);put(r,C3,counted?'Contado, pero ya no está en el catálogo':'Ya no está en el catálogo');continue}
+  const dif=r2(q-p.e);put(r,C1,q);put(r,C2,dif);put(r,C3,estado(q,counted,dif))}
+ let r=Math.max(maxR,base-1)+1;
+ const extraRow=(code,desc,qty,q,dif,st)=>{put(r,lay.code_col,String(code));if(lay.desc_col!=null&&lay.desc_col!==lay.code_col)put(r,lay.desc_col,desc);if(lay.qty_col!=null&&qty!=null&&lay.qty_col!==lay.code_col&&lay.qty_col!==lay.desc_col)put(r,lay.qty_col,qty,F[lay.qty_col]);put(r,C1,q);if(dif!=null)put(r,C2,dif);put(r,C3,st);r++};
+ for(const p of cat)if(!inLay.has(p._k)){const counted=p._k in tot,q=tot[p._k]||0,dif=r2(q-p.e);extraRow(p.c,p.d,p.e,q,dif,'No venía en el archivo importado · '+estado(q,counted,dif))}
+ for(const k of Object.keys(tot))if(!idx.has(k)&&!inLay.has(k)){const e=firstEnt(k);extraRow(e?e.c:k,'',null,tot[k],tot[k],'NO ESTÁ EN CATÁLOGO')}
+ sh['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(r-1,maxR,0),c:C3}});
+ const cols=[];for(let c=0;c<nc;c++)cols.push((lay.col_widths||[])[c]||{wch:c===lay.desc_col?40:14});cols.push({wch:11},{wch:11},{wch:30});sh['!cols']=cols;
+ if((lay.merges||[]).length)sh['!merges']=lay.merges;
+ return{sh,name:String(lay.sheet_name||'Catalogo').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||'Catalogo'}}
 async function exportData(sid){let ents,sname;
- if(sess&&sid===sess.id){ents=[...entries.values()];sname=sess.name}
+ if(sess&&sid===sess.id){ents=[...entries.values()];for(const e of pending)if(!entries.has(e.id)&&!e.failed&&e.sid===sess.id)ents.push({id:e.id,c:e.code,q:e.qty,u:user.id,n:ws.display_name,t:e.t,note:e.note});sname=sess.name}   // incluye lo pendiente de enviar
  else{const rows=await fetchAll(()=>sb.from('count_entries').select(E_COLS).eq('session_id',sid).order('created_at').order('id'));ents=rows.map(toEntry);sname=(sessions.find(s=>s.id===sid)||{}).name||'conteo'}
  const tot={};for(const e of ents){const k=key(e.c);tot[k]=r2((tot[k]||0)+e.q)}
- const A=[['Código','Descripción','Existencia sistema','Conteo físico','Diferencia']];
- for(const p of cat){const q=tot[p._k]||0;A.push([p.c,p.d,p.e,q,r2(q-p.e)])}
- const B=[['Código','Conteo físico']];for(const k of Object.keys(tot))if(!idx.has(k)){const e=ents.find(x=>key(x.c)===k);B.push([e?e.c:k,tot[k]])}
+ const firstEnt=k=>ents.find(x=>key(x.c)===k);
+ let main=null,fallback='';
+ try{main=await layoutSheet(tot,firstEnt);if(!main)fallback='nolayout'}catch(e){fallback='error';console.warn('formato original no disponible',e)}
+ const wb=XLSX.utils.book_new(),used=new Set();
+ const add=(w,n)=>{let name=n,i=2;while(used.has(name.toLowerCase()))name=(n.slice(0,27)+' ('+(i++)+')');used.add(name.toLowerCase());XLSX.utils.book_append_sheet(wb,w,name)};
+ if(main)add(main.sh,main.name);
+ else{const A=[['Código','Descripción','Existencia sistema','Conteo físico','Diferencia']];
+  for(const p of cat){const q=tot[p._k]||0;A.push([p.c,p.d,p.e,q,r2(q-p.e)])}
+  const w1=XLSX.utils.aoa_to_sheet(A);w1['!cols']=[{wch:16},{wch:44},{wch:12},{wch:12},{wch:12}];add(w1,'Conteo')}
+ const B=[['Código','Conteo físico']];for(const k of Object.keys(tot))if(!idx.has(k)){const e=firstEnt(k);B.push([e?e.c:k,tot[k]])}
  const C=[['Código','Cantidad','Contado por','Fecha','Nota']];for(const e of ents.slice().sort((a,b)=>a.t-b.t))C.push([e.c,e.q,e.n,new Date(e.t).toLocaleString('es-MX'),e.note||'']);
- const wb=XLSX.utils.book_new(),w1=XLSX.utils.aoa_to_sheet(A),w2=XLSX.utils.aoa_to_sheet(B),w3=XLSX.utils.aoa_to_sheet(C);
- w1['!cols']=[{wch:16},{wch:44},{wch:12},{wch:12},{wch:12}];w2['!cols']=[{wch:20},{wch:14}];w3['!cols']=[{wch:16},{wch:10},{wch:20},{wch:18},{wch:30}];
- XLSX.utils.book_append_sheet(wb,w1,'Conteo');XLSX.utils.book_append_sheet(wb,w2,'No en catálogo');XLSX.utils.book_append_sheet(wb,w3,'Movimientos');
- return{wb,name:'conteo_'+String(sname).replace(/[^\w\-]+/g,'_')+'_'+today()+'.xlsx'}}
+ const w2=XLSX.utils.aoa_to_sheet(B),w3=XLSX.utils.aoa_to_sheet(C);w2['!cols']=[{wch:20},{wch:14}];w3['!cols']=[{wch:16},{wch:10},{wch:20},{wch:18},{wch:30}];
+ add(w2,'No en catálogo');add(w3,'Movimientos');
+ return{wb,fallback,name:'conteo_'+String(sname).replace(/[^\w\-]+/g,'_')+'_'+today()+'.xlsx'}}
 async function doExport(sid){if(!hasLib('XLSX')){toast('No cargó la librería de Excel (¿sin internet?)',true);return}
- try{const r=await exportData(sid||(sess&&sess.id));XLSX.writeFile(r.wb,r.name);toast('Archivo exportado')}catch(e){toast('Error al exportar: '+friendly(e),true)}}
+ try{const r=await exportData(sid||(sess&&sess.id));XLSX.writeFile(r.wb,r.name);
+  toast(r.fallback==='nolayout'?'Exportado en formato estándar (no hay formato original guardado; reimporte el catálogo para conservarlo)':r.fallback==='error'?'Exportado en formato estándar (no se pudo leer el formato original; ¿sin conexión?)':'Archivo exportado con el formato original')}catch(e){toast('Error al exportar: '+friendly(e),true)}}
 $('bExp').onclick=()=>doExport(sess&&sess.id);
 $('bExp2').onclick=()=>doExport($('expSes').value);
 
@@ -838,7 +913,7 @@ $('aForgot').onclick=async()=>{const email=$('aEmail').value.trim();if(!email)re
 $('rGo').onclick=async()=>{const p=$('rPass').value;if(p.length<8){$('rMsg').textContent='Mínimo 8 caracteres';return}
  const{error}=await sb.auth.updateUser({password:p});if(error){$('rMsg').textContent=friendly(error);return}toast('Contraseña actualizada');await enter()};
 
-function resetSession(){needInit=false;hist=[];hSeq++;histBusy=false;histLoaded=false;histMore=false;stopRealtime();clearInterval(pollT);ws=null;sess=null;sessions=[];members=[];cat=[];idx=new Map();entries=new Map();pending=[];cnt={};cur=null;lastEntryT=lastProdT=0;rebuild();document.body.classList.remove('is-admin')}
+function resetSession(){needInit=false;layMeta=undefined;layTry=0;hist=[];hSeq++;histBusy=false;histLoaded=false;histMore=false;stopRealtime();clearInterval(pollT);ws=null;sess=null;sessions=[];members=[];cat=[];idx=new Map();entries=new Map();pending=[];cnt={};cur=null;lastEntryT=lastProdT=0;rebuild();document.body.classList.remove('is-admin')}
 async function signOut(){const n=pending.filter(e=>!e.failed).length;if(n&&!confirm(`Hay ${n} movimientos sin enviar. Se conservan en este teléfono y se enviarán cuando vuelva a ingresar. ¿Salir?`))return;
  try{await sb.auth.signOut()}catch(e){}resetSession();user=null;screen('scrAuth')}
 $('bOut').onclick=signOut;$('oOut').onclick=signOut;
