@@ -1,6 +1,6 @@
 /* Service worker — Conteo de Inventario
    SUBA VERSION en cada publicación: así los teléfonos detectan la versión nueva y muestran «Hay una versión nueva – Actualizar». */
-const VERSION = '8.0.0';
+const VERSION = '9.0.0';
 const SHELL = 'shell-' + VERSION;      // app + íconos + manifest (se reemplaza en cada versión)
 const LIBS  = 'libs-v1';               // librerías de CDN y datos del OCR (se conservan entre versiones)
 
@@ -11,6 +11,8 @@ const CDN_PRECACHE = [
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
   'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+  'https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.6/dist/iife/reader/index.js',
+  'https://fastly.jsdelivr.net/npm/zxing-wasm@3.1.6/dist/reader/zxing_reader.wasm',
   'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'
 ];
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'tessdata.projectnaptha.com', 'fastly.jsdelivr.net', 'gcore.jsdelivr.net'];
