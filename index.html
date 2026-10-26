@@ -49,6 +49,13 @@ small,.muted{color:#64748b;font-size:14px}
 #modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px}
 #modal.on{display:flex}#modal .box{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:420px}
 #modal button:disabled{opacity:.4;cursor:not-allowed}
+#brModal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px}
+#brModal.on{display:flex}#brModal .box{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
+#tBr{display:inline-block;margin-top:3px;background:#1d4ed8;color:#fff;border:0;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700;min-height:32px;width:auto}
+#tBr.legacy{background:#475569}
+.brRow{display:flex;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid #e2e8f0}.brRow .d{flex:1;min-width:0}.brRow button{width:auto;flex:none;padding:8px 12px;min-height:40px}
+.brPick{display:block;width:100%;margin-top:8px;text-align:left}
+.brPick.on{outline:3px solid #1d4ed8}
 #toast{position:fixed;left:10px;right:10px;bottom:14px;z-index:50;background:#14532d;color:#fff;border-radius:12px;padding:14px;display:none;text-align:center;font-weight:600}
 #toast.err{background:#991b1b}
 /* contar */
@@ -164,7 +171,7 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
 
 <!-- ===== APP ===== -->
 <div id="scrMain" class="hide">
-<div id="topbar"><div><b id="tWs"></b> <span id="tRole" class="muted" style="color:#94a3b8"></span><br><span id="tSes" style="font-size:12px;color:#94a3b8"></span></div><div id="badge" class="badge on">● En línea</div></div>
+<div id="topbar"><div><b id="tWs"></b> <span id="tRole" class="muted" style="color:#94a3b8"></span><br><span id="tSes" style="font-size:12px;color:#94a3b8"></span><br><button id="tBr" class="hide" type="button" aria-label="cambiar de sucursal"></button></div><div id="badge" class="badge on">● En línea</div></div>
 <nav id="nav">
  <button data-t="contar" class="on">Contar</button>
  <button data-t="lista">Lista</button>
@@ -175,6 +182,7 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
 </nav>
 <main>
 <section class="tab on" id="t-contar">
+ <div class="card hide" id="brSum"></div>
  <div class="card"><div class="grid2">
   <button id="bBc">▥ Código de barras</button><button id="bQr">📷 Escanear QR</button><button id="bOcr">🔤 Leer texto</button><button id="bMan" class="sec">⌨️ Manual</button>
  </div></div>
@@ -268,9 +276,18 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
   <div class="pwa-help" id="pwaPersist"></div>
  </div>
  <div class="card"><h2>Catálogo</h2><div id="catInfo"></div></div>
+ <div class="card hide" id="brCard">
+  <h2>🏬 Sucursales</h2>
+  <div class="muted">Cada sucursal tiene su propio catálogo importado de Microsip (existencias), sus conteos e historial. El catálogo de productos y los alias son de toda la empresa.</div>
+  <div id="brList" style="margin-top:8px"></div>
+  <div class="admin-only" style="margin-top:10px">
+   <label class="field" for="brNew">Nueva sucursal</label><div class="row"><input type="text" id="brNew" maxlength="60" placeholder="p. ej. SYD AZUL" autocomplete="off"><button id="brAdd" class="grn" style="flex:none">➕ Crear</button></div>
+  </div>
+ </div>
  <div class="card admin-only">
   <h2>Importar catálogo</h2>
   <div class="muted">Archivo Excel (.xlsx/.xls) o CSV con código, descripción y existencia (p. ej. exportado de Microsip). Solo administradores.</div>
+  <div id="impBr" class="hide" style="margin-top:6px;font-weight:700"></div>
   <div class="muted" id="layInfo" style="margin-top:6px"></div>
   <input type="file" id="catFile" accept=".xlsx,.xls,.csv,.txt" style="margin-top:8px">
   <div id="mapBox" style="display:none;margin-top:12px">
@@ -280,7 +297,7 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
     <label>Descripción<select id="mDesc"></select></label>
     <label>Existencia en sistema<select id="mExi"></select></label>
    </div>
-   <label style="display:block;margin-top:8px"><input type="checkbox" id="mRepl" style="width:24px;height:24px;vertical-align:middle"> Reemplazar: quitar los productos que no estén en el archivo</label>
+   <label style="display:block;margin-top:8px"><input type="checkbox" id="mRepl" style="width:24px;height:24px;vertical-align:middle"> <span id="mReplTxt">Reemplazar: quitar los productos que no estén en el archivo</span></label>
    <div id="mPrev" style="overflow:auto;margin:8px 0"></div>
    <button id="bMap" class="grn" style="width:100%">Importar catálogo</button>
    <div id="mProg" class="muted"></div>
@@ -326,6 +343,7 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
    <label>Hasta<input type="date" id="hTo"></label>
   </div>
   <input type="search" id="hCode" placeholder="Buscar por código" autocomplete="off">
+  <label id="hAllBox" class="hide" style="display:block;margin-top:6px"><input type="checkbox" id="hAllBr" style="width:24px;height:24px;vertical-align:middle"> Ver todas las sucursales</label>
   <div class="row" style="margin-top:8px"><button class="sec" id="hClear">Limpiar filtros</button><button class="grn admin-only" id="hExp">⬇️ Exportar .xlsx</button></div>
   <div id="hInfo" class="muted" style="margin-top:6px"></div>
  </div>
@@ -351,6 +369,12 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
  <p>Para continuar escriba la palabra <b>autorizar</b>:</p>
  <input type="text" id="mWord" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="autorizar">
  <div class="row" style="margin-top:12px"><button class="sec" id="mCancel">Cancelar</button><button class="red" id="mOk" disabled>Cerrar y reiniciar</button></div>
+</div></div>
+<div id="brModal" role="dialog" aria-modal="true" aria-labelledby="brTitle"><div class="box">
+ <h2 id="brTitle">🏬 Elegir sucursal</h2>
+ <div class="muted">Los conteos, importaciones, exportaciones e historial se hacen en la sucursal elegida. Este teléfono la recordará.</div>
+ <div id="brPickList"></div>
+ <button class="sec" id="brPickX" style="width:100%;margin-top:12px">Cerrar</button>
 </div></div>
 <div id="toast"></div>
 
@@ -389,6 +413,10 @@ let sb=null,user=null,mems=[],ws=null,sess=null,sessions=[],members=[];
 let cat=[],idx=new Map(),entries=new Map(),pending=[],cnt={},cur=null;
 let net='ok',rtOK=false,chan=null,pollT=null,pollN=0,lastEntryT=0,lastProdT=0,polling=false,flushing=false;
 const K_WS='inv5_ws_',K_Q='inv5_q_',K_CACHE='inv5_cache_';
+/* v11: sucursales (solo ambakity, ver isAmb). br=null => «Sin sucursal (antes de v11)» */
+let branches=[],br=null,brCatT=null,brOff=0;const K_BR='inv11_br_',K_BRS='inv11_brs_';
+const brMode=()=>!!br&&isAmb();
+const cacheKey=()=>K_CACHE+ws.id+(brMode()?'_b_'+br.id:'');
 const isAdmin=()=>!!ws&&ws.role==='admin';
 const findCode=c=>idx.get(key(c));
 function rebuild(){idx=new Map();for(const p of cat){p._k=key(p.c);p._s=norm(p.c+' '+p.d)+' '+p._k;idx.set(p._k,p)}}
@@ -412,7 +440,7 @@ window.addEventListener('online',()=>{setNet(true);renderBadge();if(needInit&&ws
 function derive(){const c={};
  const add=(code,q,t,name)=>{const k=key(code);if(!k)return;const o=c[k]||(c[k]={c:code,q:0,t:0,by:{}});o.q=r2(o.q+q);if(t>o.t)o.t=t;o.by[name]=r2((o.by[name]||0)+q)};
  for(const e of entries.values())add(e.c,e.q,e.t,e.n||'?');
- for(const e of pending)if(!e.failed&&!entries.has(e.id))add(e.code,e.qty,e.t,(ws&&ws.display_name)||'yo');
+ for(const e of pending)if(!e.failed&&!entries.has(e.id)&&(!isAmb()||!sess||e.sid===sess.id))add(e.code,e.qty,e.t,(ws&&ws.display_name)||'yo');
  for(const k in c){const p=idx.get(k);if(p)c[k].c=p.c}
  cnt=c}
 let rafP=false,saveT=null;
@@ -420,8 +448,8 @@ function refresh(){if(rafP)return;rafP=true;(window.requestAnimationFrame||setTi
 function renderActive(){updStats();if(tab==='lista'&&!(document.activeElement&&$('lista').contains(document.activeElement)))renderList();else if(tab==='dif')renderDif();else if(tab==='cat')renderCat()}
 
 /* ============ caché local (lectura sin conexión) ============ */
-function saveCache(){if(!ws||!sess)return;try{const s=JSON.stringify({cat:cat.map(p=>[p.c,p.d,p.e]),sid:sess.id,sname:sess.name,ent:[...entries.values()].map(e=>[e.id,e.c,e.q,e.u,e.n,e.t,e.note])});if(s.length<3.5e6)sset(K_CACHE+ws.id,s)}catch(e){}}
-function loadCache(){const o=jget(K_CACHE+ws.id,null,v=>v&&Array.isArray(v.cat)&&Array.isArray(v.ent));if(!o)return;
+function saveCache(){if(!ws||!sess)return;try{const s=JSON.stringify({cat:cat.map(p=>[p.c,p.d,p.e]),sid:sess.id,sname:sess.name,ent:[...entries.values()].map(e=>[e.id,e.c,e.q,e.u,e.n,e.t,e.note])});if(s.length<3.5e6)sset(cacheKey(),s)}catch(e){}}
+function loadCache(){const o=jget(cacheKey(),null,v=>v&&Array.isArray(v.cat)&&Array.isArray(v.ent));if(!o)return;
  cat=o.cat.map(a=>({c:String(a[0]),d:String(a[1]||''),e:num(a[2])}));rebuild();sess={id:o.sid,name:o.sname};
  entries=new Map(o.ent.map(a=>[a[0],{id:a[0],c:a[1],k:key(a[1]),q:num(a[2]),u:a[3],n:a[4],t:num(a[5]),note:a[6]}]));
  for(const e of entries.values())if(e.t>lastEntryT)lastEntryT=e.t}
@@ -433,30 +461,36 @@ function savePending(){sset(pendKey(),JSON.stringify(pending))}
 async function fetchAll(build){const out=[];for(let from=0;;from+=1000){const{data,error,status}=await build().range(from,from+999);if(error){error.status=status;throw error}out.push(...data);if(data.length<1000)break}return out}
 const toEntry=r=>({id:r.id,c:r.code,k:key(r.code),q:num(r.qty),u:r.user_id,n:r.user_name,t:Date.parse(r.created_at),note:r.note});
 const E_COLS='id,code,qty,user_id,user_name,note,created_at';
-async function loadProducts(){const rows=await fetchAll(()=>sb.from('products').select('id,code,description,system_qty,updated_at').eq('workspace_id',ws.id).order('normalized_code'));
+async function loadProducts(){if(brMode())return loadBrProducts();const rows=await fetchAll(()=>sb.from('products').select('id,code,description,system_qty,updated_at').eq('workspace_id',ws.id).order('normalized_code'));
  cat=rows.map(r=>({id:r.id,c:r.code,d:r.description||'',e:num(r.system_qty)}));rebuild();loadAliases().catch(()=>{});lastProdT=rows.reduce((m,r)=>Math.max(m,Date.parse(r.updated_at)||0),0);refresh()}
+async function loadBrProducts(){const b=br,rows=await fetchAll(()=>sb.from('branch_products').select('normalized_code,code,description,system_qty').eq('branch_id',b.id).eq('active',true).order('normalized_code'));
+ if(br!==b&&!(br&&b&&br.id===b.id))return;cat=rows.map(r=>({id:'b:'+r.normalized_code,c:r.code,d:r.description||'',e:num(r.system_qty)}));rebuild();brCatT=b.catalog_updated_at||null;
+ const{count}=await sb.from('branch_products').select('normalized_code',{count:'exact',head:true}).eq('branch_id',b.id).eq('active',false);brOff=count||0;
+ loadAliases().catch(()=>{});refresh()}
 async function loadEntries(){const rows=await fetchAll(()=>sb.from('count_entries').select(E_COLS).eq('session_id',sess.id).order('created_at').order('id'));
  entries=new Map(rows.map(r=>[r.id,toEntry(r)]));lastEntryT=0;for(const e of entries.values())if(e.t>lastEntryT)lastEntryT=e.t;refresh()}
 async function loadMembers(){const{data,error}=await sb.from('workspace_members').select('user_id,role,display_name').eq('workspace_id',ws.id).order('created_at');if(error)throw error;
  members=data;const me=members.find(m=>m.user_id===user.id);if(me){const ch=me.role!==ws.role;ws.role=me.role;ws.display_name=me.display_name||ws.display_name;if(ch)applyRole()}else if(members.length){toast('Ya no pertenece a esta empresa',true);setTimeout(()=>leaveWorkspace(),500)}
 
  if(tab==='cat')renderCat();fillHUsers()}
-async function syncSessions(){const{data,error,status}=await sb.from('count_sessions').select('id,name,status,created_at,closed_at').eq('workspace_id',ws.id).order('created_at',{ascending:false}).limit(50);
+async function syncSessions(){let sq=sb.from('count_sessions').select(isAmb()?'id,name,status,created_at,closed_at,branch_id,summary':'id,name,status,created_at,closed_at').eq('workspace_id',ws.id);if(isAmb())sq=brMode()?sq.eq('branch_id',br.id):sq.is('branch_id',null);
+ const b0=br,{data,error,status}=await sq.order('created_at',{ascending:false}).limit(50);if(b0!==br)return;
  if(error){error.status=status;throw error}sessions=data;const open=data.find(s=>s.status==='open');
  if(open&&(!sess||open.id!==sess.id)){const had=!!sess;sess={id:open.id,name:open.name};await loadEntries();if(had)toast('📣 Nuevo conteo iniciado: '+open.name)}
  else if(open)sess.name=open.name;
- renderTop()}
+ renderTop();renderBrSum()}
 let needInit=false;
-async function initialLoad(){if(!navigator.onLine){needInit=true;setNet(false);refresh();return}needInit=false;try{await syncSessions();await Promise.all([loadProducts(),loadMembers()]);setNet(true)}catch(e){if(netFail(e,e.status))setNet(false);else{toast('Error al cargar: '+friendly(e),true)}}refresh()}
+async function initialLoad(){if(!navigator.onLine){needInit=true;setNet(false);refresh();return}needInit=false;try{if(isAmb())await loadBranches(true);await syncSessions();await Promise.all([loadProducts(),loadMembers()]);setNet(true)}catch(e){if(netFail(e,e.status))setNet(false);else{toast('Error al cargar: '+friendly(e),true)}}refresh()}
 async function pollOnce(){if(!ws||!user||polling)return;polling=true;
  try{await flush();await syncSessions();
   if(sess){const since=new Date(Math.max(0,lastEntryT-60000)).toISOString();
    const rows=await fetchAll(()=>sb.from('count_entries').select(E_COLS).eq('session_id',sess.id).gte('created_at',since).order('created_at').order('id'));
    for(const r of rows){const e=toEntry(r);entries.set(e.id,e);if(e.t>lastEntryT)lastEntryT=e.t}}
-  const ps=new Date(Math.max(0,lastProdT-60000)).toISOString();
+  if(!brMode()){const ps=new Date(Math.max(0,lastProdT-60000)).toISOString();
   const pr=await fetchAll(()=>sb.from('products').select('id,code,description,system_qty,updated_at').eq('workspace_id',ws.id).gte('updated_at',ps).order('updated_at').order('id'));
-  if(pr.length){const m=new Map(cat.map(p=>[p.id,p]));for(const r of pr){m.set(r.id,{id:r.id,c:r.code,d:r.description||'',e:num(r.system_qty)});lastProdT=Math.max(lastProdT,Date.parse(r.updated_at)||0)}cat=[...m.values()];rebuild()}
-  if(++pollN%6===0){const{count,error}=await sb.from('products').select('id',{count:'exact',head:true}).eq('workspace_id',ws.id);if(!error&&count!=null&&count!==cat.length)await loadProducts();else await loadAliases().catch(()=>{});await loadMembers();flushScanQ().catch(()=>{})}
+  if(pr.length){const m=new Map(cat.map(p=>[p.id,p]));for(const r of pr){m.set(r.id,{id:r.id,c:r.code,d:r.description||'',e:num(r.system_qty)});lastProdT=Math.max(lastProdT,Date.parse(r.updated_at)||0)}cat=[...m.values()];rebuild()}}
+  if(++pollN%6===0&&isAmb()){await loadBranches().catch(()=>{});if(!brMode()){const{count,error}=await sb.from('products').select('id',{count:'exact',head:true}).eq('workspace_id',ws.id);if(!error&&count!=null&&count!==cat.length)await loadProducts()}await loadAliases().catch(()=>{});await loadMembers();flushScanQ().catch(()=>{})}
+  else if(pollN%6===0){const{count,error}=await sb.from('products').select('id',{count:'exact',head:true}).eq('workspace_id',ws.id);if(!error&&count!=null&&count!==cat.length)await loadProducts();else await loadAliases().catch(()=>{});await loadMembers();flushScanQ().catch(()=>{})}
   if(histLoaded&&tab==='hist'){const hr=await histQ().limit(51);if(!hr.error)hr.data.forEach(histUpsert)}
   setNet(true)}
  catch(e){if(netFail(e,e&&e.status))setNet(false);else console.warn('poll',e)}
@@ -469,27 +503,28 @@ let prodQ=[],prodT=null;
 function startRealtime(){stopRealtime();if(!sb||!ws)return;const f='workspace_id=eq.'+ws.id;
  try{chan=sb.channel('ws-'+ws.id)
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'count_entries',filter:f},p=>{const r=p.new;if(r&&sess&&r.session_id===sess.id){const e=toEntry(r);entries.set(e.id,e);if(e.t>lastEntryT)lastEntryT=e.t;pending=pending.filter(x=>x.id!==e.id);refresh()}})
-  .on('postgres_changes',{event:'*',schema:'public',table:'products',filter:f},p=>{prodQ.push(p);clearTimeout(prodT);prodT=setTimeout(applyProdQ,300)})
+  .on('postgres_changes',{event:'*',schema:'public',table:'products',filter:f},p=>{if(brMode())return;prodQ.push(p);clearTimeout(prodT);prodT=setTimeout(applyProdQ,300)})
   .on('postgres_changes',{event:'*',schema:'public',table:'count_sessions',filter:f},()=>setTimeout(pollOnce,0))
   .on('postgres_changes',{event:'*',schema:'public',table:'code_aliases',filter:f},()=>setTimeout(()=>loadAliases().catch(()=>{}),0))
   .on('postgres_changes',{event:'*',schema:'public',table:'audit_log',filter:f},p=>{if(p.new&&p.new.id)histUpsert(p.new)})
   .on('postgres_changes',{event:'*',schema:'public',table:'workspace_members',filter:f},()=>setTimeout(()=>loadMembers().catch(()=>{}),0))
+  .on('postgres_changes',{event:'*',schema:'public',table:'branches',filter:f},()=>{if(isAmb())setTimeout(()=>loadBranches().catch(()=>{}),0)})
   .subscribe(st=>{const was=rtOK;rtOK=st==='SUBSCRIBED';renderBadge();if(rtOK&&!was)setTimeout(pollOnce,0)})}
  catch(e){console.warn('realtime',e)}}
 function stopRealtime(){rtOK=false;if(chan&&sb){try{sb.removeChannel(chan)}catch(e){}}chan=null}
-function applyProdQ(){const q=prodQ;prodQ=[];if(q.length>400){loadProducts().catch(()=>{});return}
+function applyProdQ(){const q=prodQ;prodQ=[];if(brMode())return;if(q.length>400){loadProducts().catch(()=>{});return}
  const m=new Map(cat.map(p=>[p.id,p]));for(const p of q){if(p.eventType==='DELETE'){if(p.old&&p.old.id)m.delete(p.old.id)}else if(p.new){m.set(p.new.id,{id:p.new.id,c:p.new.code,d:p.new.description||'',e:num(p.new.system_qty)});lastProdT=Math.max(lastProdT,Date.parse(p.new.updated_at)||0)}}
  cat=[...m.values()];rebuild();refresh()}
 
 /* ============ agregar conteos (cola con ids únicos) ============ */
 function addEntry(code,qty,note){if(!ws||!sess){toast('Aún no hay conteo activo',true);return false}
- const e={id:uuid(),ws:ws.id,sid:sess.id,code:String(code).trim().slice(0,64),qty:r2(qty),note:note?String(note).slice(0,200):null,t:Date.now(),name:ws.display_name};
+ const e={id:uuid(),ws:ws.id,sid:sess.id,code:String(code).trim().slice(0,64),qty:r2(qty),note:note?String(note).slice(0,200):null,t:Date.now(),name:ws.display_name};if(brMode())e.br=br.id;
  pending.push(e);savePending();derive();refresh();setTimeout(flush,0);return true}
 async function flush(){flushScanQ().catch(()=>{});if(flushing||!ws||!user)return;const todo=pending.filter(e=>!e.failed);if(!todo.length)return;flushing=true;
  try{for(let i=0;i<todo.length;i+=50){const r=await sendBatch(todo.slice(i,i+50));if(r==='net'){setNet(false);return}setNet(true)}}
  catch(e){setNet(false)}finally{flushing=false;savePending();refresh()}}
 async function sendBatch(batch){
- const rows=batch.map(e=>({id:e.id,workspace_id:e.ws,session_id:e.sid,code:e.code,normalized_code:key(e.code),qty:e.qty,note:e.note||null}));
+ const rows=batch.map(e=>{const r={id:e.id,workspace_id:e.ws,session_id:e.sid,code:e.code,normalized_code:key(e.code),qty:e.qty,note:e.note||null};if(e.br)r.branch_id=e.br;return r});
  const{error,status}=await sb.from('count_entries').upsert(rows,{onConflict:'id',ignoreDuplicates:true});
  if(!error){for(const e of batch){pending=pending.filter(x=>x.id!==e.id);if(sess&&e.sid===sess.id)entries.set(e.id,{id:e.id,c:e.code,k:key(e.code),q:e.qty,u:user.id,n:e.name,t:e.t,note:e.note})}return'ok'}
  if(netFail(error,status))return'net';
@@ -515,7 +550,8 @@ $('nav').onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.t)};
 const SCREENS=['scrLoad','scrAuth','scrRecov','scrOnb','scrMain'];
 function screen(s){SCREENS.forEach(x=>$(x).classList.toggle('hide',x!==s));window.scrollTo(0,0)}
 function applyRole(){document.body.classList.toggle('is-admin',isAdmin());$('tRole').textContent=isAdmin()?'(administrador)':'(miembro)';$('myRole').textContent=isAdmin()?'administrador':'miembro'}
-function renderTop(){if(!ws)return;$('tWs').textContent=ws.name;$('tSes').textContent=sess?('Conteo: '+sess.name):'';applyRole()}
+function renderTop(){if(!ws)return;$('tWs').textContent=ws.name;$('tSes').textContent=sess?('Conteo: '+sess.name):'';applyRole();
+ const t=$('tBr');if(t){t.classList.toggle('hide',!isAmb());t.classList.toggle('legacy',!brMode());t.textContent=brMode()?'📍 '+br.name+' ▾':'📍 Sin sucursal (antes de v11) ▾'}}
 
 /* ============ producto seleccionado ============ */
 let coolUntil=0;
@@ -736,7 +772,7 @@ let remMode=null; // ambakity: 'nuevo' | 'actualizar' | null
 function sbEval(){if(!scanSt)return;const t=sbTarget();let m='',ch='';const rk=key(scanSt.raw),amb=isAmb();
  if(!t.k){m='<span class="sbNo">Escriba un código</span>'}
  else if(t.p){m=`<span class="sbOk">✔ En catálogo: ${esc(t.p.c)}</span><br>${esc(t.p.d)}`+(t.how==='alias'?`<br><small>Por alias guardado: «${esc(t.a.alias_raw)}» → ${esc(t.p.c)}</small>`:'')}
- else if(t.missing){m=`<span class="sbOk">✔ Alias guardado: «${esc(t.a.alias_raw)}» → ${esc(t.a.product_code)}</span><br><span class="sbNo">⚠️ ${esc(t.a.product_code)} no está en el catálogo actual</span> — se puede contar igual (aparecerá como «no está en el catálogo»).`}
+ else if(t.missing){m=`<span class="sbOk">✔ Alias guardado: «${esc(t.a.alias_raw)}» → ${esc(t.a.product_code)}</span><br><span class="sbNo">⚠️ ${esc(t.a.product_code)} ${brMode()?'no está activo en esta sucursal':'no está en el catálogo actual'}</span> — se puede contar igual (aparecerá como «no está en el catálogo»).`}
  else{const c=suggest(t.v);m=`<span class="sbNo">⚠️ «${esc(t.v)}» no está en el catálogo.</span>`+(c.length?'<br>¿Quisiste decir…?':'');
   ch=c.map(x=>`<div class="chip near" data-c="${esc(x.p.c)}">${esc(x.p.c)}<small>${esc(x.p.d)}<br>${esc(x.why)}</small></div>`).join('')}
  $('sbMatch').innerHTML=m;$('sbCands').innerHTML=ch;
@@ -861,13 +897,14 @@ $('ocrFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!
 let hist=[],histMore=false,histLoaded=false,histBusy=false,hf={user:'',type:'',from:'',to:'',code:''};
 const H_PAGE=50,ACT_TYPE={conteo:'conteo',producto:'producto',miembro:'miembro',empresa:'miembro',sesion:'sesion'};
 function histQ(){let q=sb.from('audit_log').select('*').eq('workspace_id',ws.id);
+ if(isAmb()&&!hf.all)q=brMode()?q.eq('branch_id',br.id):q.is('branch_id',null);
  if(hf.user)q=q.eq('user_id',hf.user);
  if(hf.type==='miembro')q=q.in('entity',['miembro','empresa']);else if(hf.type)q=q.eq('entity',hf.type);
  if(hf.from)q=q.gte('created_at',new Date(hf.from+'T00:00:00').toISOString());
  if(hf.to)q=q.lt('created_at',new Date(new Date(hf.to+'T00:00:00').getTime()+864e5).toISOString());
  if(key(hf.code))q=q.like('entity_nkey','%'+key(hf.code)+'%');
  return q.order('created_at',{ascending:false}).order('id',{ascending:false})}
-function hMatch(r){if(r.workspace_id!==ws.id)return false;if(hf.user&&r.user_id!==hf.user)return false;
+function hMatch(r){if(r.workspace_id!==ws.id)return false;if(isAmb()&&!hf.all&&(r.branch_id||null)!==(brMode()?br.id:null))return false;if(hf.user&&r.user_id!==hf.user)return false;
  if(hf.type==='miembro'){if(r.entity!=='miembro'&&r.entity!=='empresa')return false}else if(hf.type&&r.entity!==hf.type)return false;
  const t=Date.parse(r.created_at);if(hf.from&&t<new Date(hf.from+'T00:00:00').getTime())return false;if(hf.to&&t>=new Date(hf.to+'T00:00:00').getTime()+864e5)return false;
  if(key(hf.code)&&!(r.entity_nkey||'').includes(key(hf.code)))return false;return true}
@@ -881,7 +918,7 @@ async function loadHist(reset){if(!ws||!sb)return;if(!reset&&histBusy)return;con
   if(reset)hist=rows;else{const ids=new Set(hist.map(x=>x.id));hist=hist.concat(rows.filter(x=>!ids.has(x.id)))}
   histLoaded=true;setNet(true)}
  catch(e){if(my===hSeq){if(netFail(e,e.status))setNet(false);toast('Historial: '+friendly(e),true)}}finally{if(my===hSeq){histBusy=false;renderHist()}}}
-function openHist(){fillHUsers();$('hUser').value=hf.user;$('hType').value=hf.type;$('hFrom').value=hf.from;$('hTo').value=hf.to;$('hCode').value=hf.code;loadHist(true)}
+function openHist(){$('hAllBox').classList.toggle('hide',!isAmb());$('hAllBr').checked=!!hf.all;fillHUsers();$('hUser').value=hf.user;$('hType').value=hf.type;$('hFrom').value=hf.from;$('hTo').value=hf.to;$('hCode').value=hf.code;loadHist(true)}
 function fillHUsers(){const sel=$('hUser');if(!sel)return;const v=hf.user;sel.innerHTML='<option value="">Todos</option>'+members.map(m=>`<option value="${esc(m.user_id)}">${esc(m.display_name||'(sin nombre)')}</option>`).join('');sel.value=v}
 const nz=v=>v==null?'–':fmt(num(v));
 const ROLE={admin:'administrador',member:'miembro'};
@@ -895,7 +932,14 @@ function histDesc(r){const o=r.old_value||{},n=r.new_value||{},k=esc(r.entity_ke
   case'producto_creado':return{t:`Agregó el producto <b>${k}</b>`,d:`existencia sistema ${nz(n.existencia_sistema)} · ${esc(n.descripcion||'')}`};
   case'producto_modificado':return{t:`Modificó el producto <b>${k}</b>`,d:chg()};
   case'producto_eliminado':return{t:`Eliminó el producto <b>${k}</b>`,d:`existencia sistema ${nz(o.existencia_sistema)} · ${esc(o.descripcion||'')}`};
-  case'catalogo_importacion':{const cs=(n.cambios||[]).map(c=>`${esc(c.codigo)}${c.existencia?` existencia ${nz(c.existencia[0])} → ${nz(c.existencia[1])}`:''}${c.descripcion?' (descripción cambió)':''}`);
+  case'sucursal_creada':return{t:`Creó la sucursal <b>${k}</b>`,d:''};
+  case'sucursal_renombrada':return{t:'Renombró una sucursal',d:`«${esc(o.nombre)}» → «${esc(n.nombre)}»`};
+  case'sucursal_archivada':return{t:`Archivó la sucursal <b>${k}</b>`,d:'queda oculta; sus datos e historial se conservan'};
+  case'sucursal_restaurada':return{t:`Restauró la sucursal <b>${k}</b>`,d:''};
+  case'sucursal_importacion':{const cs=(n.cambios||[]).map(c=>`${esc(c.codigo)} existencia ${nz(c.existencia[0])} → ${nz(c.existencia[1])}`);
+   return{t:`Importó Microsip en la sucursal <b>${k}</b>: ${n.productos_archivo||0} productos en el archivo${n.reemplazar?' (Reemplazar)':''}`,
+    d:`${n.nuevos||0} nuevos · ${n.reactivados||0} reactivados · ${n.actualizados||0} actualizados (${n.existencia_cambio||0} con cambio de existencia) · ${n.sin_cambios||0} sin cambios · <b>${n.desactivados||0}</b> marcados inactivos en esta sucursal`+(cs.length?'<br>Cambios (muestra): '+cs.join(' · '):'')+((n.desactivados_muestra||[]).length?'<br>Inactivos (muestra): '+esc(n.desactivados_muestra.join(', ')):'')}}
+  case'catalogo_importacion':if(r.branch_id)return{t:`Agregó <b>${n.nuevos||0}</b> código(s) nuevo(s) al catálogo de la empresa (importación de sucursal)`,d:'la existencia de cada sucursal se guarda aparte'};{const cs=(n.cambios||[]).map(c=>`${esc(c.codigo)}${c.existencia?` existencia ${nz(c.existencia[0])} → ${nz(c.existencia[1])}`:''}${c.descripcion?' (descripción cambió)':''}`);
    return{t:`Importó catálogo: <b>${n.nuevos||0}</b> productos nuevos, <b>${n.actualizados||0}</b> actualizados, ${n.sin_cambios||0} sin cambios${n.eliminados?`, <b>${n.eliminados}</b> eliminados`:''}`,
     d:(cs.length?'Cambios (muestra): '+cs.join(' · '):'')+(n.eliminados_muestra?`<br>Eliminados (muestra): ${esc((n.eliminados_muestra||[]).join(', '))}`:'')}}
   case'catalogo_alta_masiva':return{t:`Agregó ${n.productos} productos al catálogo`,d:'Ej.: '+esc((n.muestra||[]).join(', '))};
@@ -919,22 +963,23 @@ function histDesc(r){const o=r.old_value||{},n=r.new_value||{},k=esc(r.entity_ke
   default:return{t:esc(r.action)+(k?' · '+k:''),d:''}}}
 const fdt=t=>{try{return new Date(t).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}catch(e){return''}};
 function renderHist(){if(!ws)return;
- $('hList').innerHTML=hist.map(r=>{const x=histDesc(r);return`<div class="hrow"><div class="ht">${fdt(r.created_at)} · <b>${esc(r.user_display_name||'?')}</b></div><div class="hx">${x.t}</div>${x.d?`<div class="hd">${x.d}</div>`:''}</div>`}).join('')||'<span class="muted">Sin registros con estos filtros.</span>';
+ $('hList').innerHTML=hist.map(r=>{const x=histDesc(r);return`<div class="hrow"><div class="ht">${fdt(r.created_at)} · <b>${esc(r.user_display_name||'?')}</b>${isAmb()&&hf.all?' · '+esc(brName(r.branch_id)):''}</div><div class="hx">${x.t}</div>${x.d?`<div class="hd">${x.d}</div>`:''}</div>`}).join('')||'<span class="muted">Sin registros con estos filtros.</span>';
  $('hMore').style.display=histMore?'block':'none';$('hInfo').textContent=hist.length+' registros mostrados'+(histMore?' (hay más)':'')}
-const hApply=()=>{hf={user:$('hUser').value,type:$('hType').value,from:$('hFrom').value,to:$('hTo').value,code:$('hCode').value.trim()};loadHist(true)};
+const hApply=()=>{hf={user:$('hUser').value,type:$('hType').value,from:$('hFrom').value,to:$('hTo').value,code:$('hCode').value.trim(),all:$('hAllBr').checked};loadHist(true)};
+$('hAllBr').onchange=hApply;
 ['hUser','hType','hFrom','hTo'].forEach(id=>$(id).onchange=hApply);
 let hT=null;$('hCode').oninput=()=>{clearTimeout(hT);hT=setTimeout(hApply,350)};
-$('hClear').onclick=()=>{hf={user:'',type:'',from:'',to:'',code:''};openHist()};
+$('hClear').onclick=()=>{hf={user:'',type:'',from:'',to:'',code:'',all:false};openHist()};
 $('hMore').onclick=()=>loadHist(false);
 $('pHist').onclick=e=>{e.preventDefault();if(!cur)return;hf={user:'',type:'',from:'',to:'',code:cur.c};show('hist')};
-const ACT_ES={conteo_suma:'Contó',conteo_ajuste:'Ajuste de conteo',conteo_deshacer:'Deshacer movimiento',conteo_importado:'Movimiento importado',producto_creado:'Producto agregado',producto_modificado:'Producto modificado',producto_eliminado:'Producto eliminado',catalogo_importacion:'Importación de catálogo',catalogo_alta_masiva:'Alta masiva',catalogo_modificacion_masiva:'Modificación masiva',catalogo_eliminacion:'Eliminación masiva',miembro_alta:'Miembro nuevo',miembro_rol:'Cambio de rol',miembro_nombre:'Cambio de nombre',miembro_baja:'Miembro quitado',empresa_creada:'Empresa creada',lectura_corregida:'Lectura corregida',alias_creado:'Alias creado',alias_eliminado:'Alias eliminado',alias_modificado:'Alias editado',alias_ocultado:'Alias ocultado',alias_restaurado:'Alias restaurado',empresa_renombrada:'Empresa renombrada',codigo_invitacion_rotado:'Código de invitación nuevo',sesion_iniciada:'Conteo iniciado',sesion_cerrada:'Conteo cerrado'};
+const ACT_ES={conteo_suma:'Contó',conteo_ajuste:'Ajuste de conteo',conteo_deshacer:'Deshacer movimiento',conteo_importado:'Movimiento importado',producto_creado:'Producto agregado',producto_modificado:'Producto modificado',producto_eliminado:'Producto eliminado',catalogo_importacion:'Importación de catálogo',catalogo_alta_masiva:'Alta masiva',catalogo_modificacion_masiva:'Modificación masiva',catalogo_eliminacion:'Eliminación masiva',miembro_alta:'Miembro nuevo',miembro_rol:'Cambio de rol',miembro_nombre:'Cambio de nombre',miembro_baja:'Miembro quitado',empresa_creada:'Empresa creada',lectura_corregida:'Lectura corregida',alias_creado:'Alias creado',alias_eliminado:'Alias eliminado',alias_modificado:'Alias editado',alias_ocultado:'Alias ocultado',alias_restaurado:'Alias restaurado',empresa_renombrada:'Empresa renombrada',codigo_invitacion_rotado:'Código de invitación nuevo',sesion_iniciada:'Conteo iniciado',sesion_cerrada:'Conteo cerrado',sucursal_creada:'Sucursal creada',sucursal_renombrada:'Sucursal renombrada',sucursal_archivada:'Sucursal archivada',sucursal_restaurada:'Sucursal restaurada',sucursal_importacion:'Importación de sucursal'};
 const plain=h=>String(h||'').replace(/<br>/g,' | ').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
 $('hExp').onclick=async()=>{if(!isAdmin()||!hasLib('XLSX'))return;$('hExp').disabled=true;
  try{let all=[],q;for(let from=0;from<20000;from+=1000){q=await histQ().range(from,from+999);if(q.error)throw q.error;all=all.concat(q.data);if(q.data.length<1000)break}
-  const A=[['Fecha','Usuario','Acción','Tipo','Código / clave','Descripción','Detalle (antes → después)']];
-  for(const r of all){const x=histDesc(r);A.push([new Date(r.created_at).toLocaleString('es-MX'),r.user_display_name,ACT_ES[r.action]||r.action,r.entity,r.entity_key||'',plain(x.t),plain(x.d)])}
+  const A=[['Fecha','Usuario','Acción','Tipo','Código / clave','Descripción','Detalle (antes → después)'].concat(isAmb()?['Sucursal']:[])];
+  for(const r of all){const x=histDesc(r);A.push([new Date(r.created_at).toLocaleString('es-MX'),r.user_display_name,ACT_ES[r.action]||r.action,r.entity,r.entity_key||'',plain(x.t),plain(x.d)].concat(isAmb()?[brName(r.branch_id)]:[]))}
   const wb=XLSX.utils.book_new(),w=XLSX.utils.aoa_to_sheet(A);w['!cols']=[{wch:20},{wch:18},{wch:26},{wch:10},{wch:18},{wch:50},{wch:60}];XLSX.utils.book_append_sheet(wb,w,'Historial');
-  XLSX.writeFile(wb,'historial_'+today()+'.xlsx');toast(all.length+' registros exportados')}
+  XLSX.writeFile(wb,'historial_'+(brMode()&&!hf.all?safeName(br.name)+'_':'')+today()+'.xlsx');toast(all.length+' registros exportados')}
  catch(e){toast('No se pudo exportar: '+friendly(e),true)}finally{$('hExp').disabled=false}};
 
 /* ============ lista ============ */
@@ -944,7 +989,7 @@ $('lvMov').onclick=()=>{lView='mov';$('lvMov').classList.add('on');$('lvProd').c
 $('lMine').onchange=renderList;
 let movLim=100;
 function allMoves(){const a=[...entries.values()].map(e=>({id:e.id,c:e.c,q:e.q,u:e.u,n:e.n,t:e.t,note:e.note,st:'ok'}));
- for(const e of pending)if(!entries.has(e.id))a.push({id:e.id,c:e.code,q:e.qty,u:user.id,n:ws.display_name,t:e.t,note:e.note,st:e.failed?'fail':'pend',err:e.failed});
+ for(const e of pending)if(!entries.has(e.id)&&(!isAmb()||!sess||e.sid===sess.id||e.failed))a.push({id:e.id,c:e.code,q:e.qty,u:user.id,n:ws.display_name,t:e.t,note:e.note,st:e.failed?'fail':'pend',err:e.failed});
  return a.sort((x,y)=>y.t-x.t)}
 function renderList(){if(!ws)return;
  const fails=pending.filter(e=>e.failed);
@@ -965,7 +1010,7 @@ $('lista').onclick=e=>{
  const u=e.target.closest('[data-undo]');if(u){const m=allMoves().find(x=>x.id===u.dataset.undo);if(m&&confirm('¿Deshacer '+sg(m.q)+' de '+m.c+' ('+m.n+')?'))addEntry(m.c,-m.q,'Anula movimiento de '+m.n+' '+fdate(m.t));return}
  if(e.target.id==='bMore'){movLim+=200;renderList()}};
 $('lFail').onclick=e=>{const r=e.target.closest('[data-retry]'),d=e.target.closest('[data-drop]');
- if(r){const p=pending.find(x=>x.id===r.dataset.retry);if(p){if(sess&&p.sid!==sess.id){p.sid=sess.id}delete p.failed;savePending();refresh();flush()}}
+ if(r){const p=pending.find(x=>x.id===r.dataset.retry);if(p){if(sess&&p.sid!==sess.id){p.sid=sess.id;if(isAmb()){if(brMode())p.br=br.id;else delete p.br}}delete p.failed;savePending();refresh();flush()}}
  if(d&&confirm('¿Descartar este movimiento?')){pending=pending.filter(x=>x.id!==d.dataset.drop);savePending();refresh()}};
 
 /* ============ diferencias ============ */
@@ -1033,16 +1078,22 @@ function buildCatalog(rows,ic,id,ie){const map=new Map(),out=[];let dup=0,skip=0
   if(map.has(k)){map.get(k).e=r2(map.get(k).e+e);dup++}else{const p={c,d:String(r[id]==null?'':r[id]).trim(),e:r2(e)};map.set(k,p);out.push(p)}}
  return{list:out,dup,skip}}
 async function saveLayout(batch,lay){   // guarda la estructura original del archivo (para exportar con el mismo formato)
- const{data,error}=await sb.from('catalog_layouts').insert({workspace_id:ws.id,import_batch:batch,file_name:lay.file,sheet_name:lay.sheet,header_row:lay.h,
+ const{data,error}=await sb.from('catalog_layouts').insert({workspace_id:ws.id,...(brMode()?{branch_id:br.id}:{}),import_batch:batch,file_name:lay.file,sheet_name:lay.sheet,header_row:lay.h,
    preamble:lay.h>0?tbl.grid.slice(0,lay.h):[],headers:lay.h>=0?(tbl.grid[lay.h]||[]):[],ncols:tbl.ncols,code_col:lay.ic,desc_col:lay.id,qty_col:lay.ie,
    col_widths:tbl.cols,merges:tbl.merges,formats:tbl.fmts,row_count:raw.length}).select('id').single();
  if(error)throw error;const lid=data.id;
  const rows=[];raw.forEach((r,i)=>{if(r.some(v=>!isBlank(v))){const k=key(cellText(r[lay.ic],lay.ic));rows.push({layout_id:lid,workspace_id:ws.id,row_index:i,normalized_code:k?k.slice(0,128):null,cells:r})}});
  for(let i=0;i<rows.length;i+=500){const{error:e2}=await sb.from('catalog_rows').insert(rows.slice(i,i+500));if(e2)throw e2}
  const{error:e3}=await sb.from('catalog_layouts').update({complete:true}).eq('id',lid);if(e3)throw e3;
- await sb.from('catalog_layouts').delete().eq('workspace_id',ws.id).neq('id',lid);   // solo se conserva el formato más reciente
+ if(brMode())await sb.rpc('prune_branch_layouts',{p_branch:br.id,p_keep:lid});   // v11: formato por sucursal
+ else await sb.from('catalog_layouts').delete().eq('workspace_id',ws.id).neq('id',lid);   // solo se conserva el formato más reciente
  layMeta=undefined;layTry=0;return lid}
-async function importCatalog(list,replace,lay){const batch=uuid();let done=0,layErr=null;
+async function importBranch(list,replace,lay){const b=br;let layErr=null;
+ const ok=list.filter(p=>p.c.length<=64);const long=list.length-ok.length;$('mProg').textContent=`Importando ${ok.length} productos en la sucursal «${b.name}»…`;
+ const{data,error}=await sb.rpc('import_branch_catalog',{p_branch:b.id,p_rows:ok.map(p=>({c:p.c,d:String(p.d||'').slice(0,300),e:p.e})),p_replace:!!replace});if(error)throw error;
+ if(lay){$('mProg').textContent='Guardando el formato original del archivo…';try{await saveLayout(data.batch,lay)}catch(e){layErr=e}}
+ await loadBranches();if(br&&br.id===b.id)await loadProducts();return{n:ok.length,long,layErr,st:data}}
+async function importCatalog(list,replace,lay){if(brMode())return importBranch(list,replace,lay);const batch=uuid();let done=0,layErr=null;
  const ok=list.filter(p=>p.c.length<=64);const long=list.length-ok.length;
  for(let i=0;i<ok.length;i+=500){const rows=ok.slice(i,i+500).map(p=>({workspace_id:ws.id,code:p.c,normalized_code:key(p.c),description:p.d.slice(0,300),system_qty:p.e,import_batch:batch}));
   const{error}=await sb.from('products').upsert(rows,{onConflict:'workspace_id,normalized_code'});if(error)throw error;done+=rows.length;$('mProg').textContent=`Importando… ${done}/${ok.length}`}
@@ -1051,28 +1102,34 @@ async function importCatalog(list,replace,lay){const batch=uuid();let done=0,lay
  await loadProducts();return{n:ok.length,long,layErr}}
 $('bMap').onclick=async()=>{if(!raw||!tbl||!isAdmin())return;const ic=+$('mCod').value,id=+$('mDesc').value,ie=+$('mExi').value,res=buildCatalog(raw,ic,id,ie);
  if(!res.list.length){toast('No se encontró ningún código con esas columnas',true);return}
- if($('mRepl').checked){if(isAmb()){const nk=new Set(res.list.filter(p=>p.c.length<=64).map(p=>key(p.c)));const quit=cat.filter(p=>!nk.has(p._k)).length;
+ if(brMode()){const nk=new Set(res.list.filter(p=>p.c.length<=64).map(p=>key(p.c))),n=nk.size;
+  if($('mRepl').checked){const quit=cat.filter(p=>!nk.has(p._k)).length,al=aliFor().list,lost=al.filter(a=>idx.has(a.product_key)&&!nk.has(a.product_key)).length,yaSin=al.filter(a=>!idx.has(a.product_key)&&!nk.has(a.product_key)).length;
+   if(!confirm(`Importar en la sucursal «${br.name}» con «Reemplazar»:\n\n• ${n} productos del archivo quedarán activos en esta sucursal.\n• ${quit} producto(s) de esta sucursal quedarán INACTIVOS (no vienen en el archivo). No se borran: se ocultan y vuelven si aparecen en otra importación.\n• ${lost+yaSin} alias apuntarán a productos inactivos en esta sucursal`+(yaSin?` (${lost} por esta importación y ${yaSin} que ya no estaban activos aquí)`:'')+`.\n\nLas demás sucursales, el catálogo de la empresa, los alias y el historial NO se modifican.\n\n¿Continuar con la importación?`)){toast('Importación cancelada; no se cambió nada');return}}
+  else if(!confirm(`Se importarán ${n} productos en la sucursal «${br.name}» (agregar / actualizar existencias). Los que no vengan en el archivo se quedan como están.\n\n¿Continuar?`)){toast('Importación cancelada; no se cambió nada');return}}
+ else if($('mRepl').checked){if(isAmb()){const nk=new Set(res.list.filter(p=>p.c.length<=64).map(p=>key(p.c)));const quit=cat.filter(p=>!nk.has(p._k)).length;
    const al=aliFor().list,lost=al.filter(a=>idx.has(a.product_key)&&!nk.has(a.product_key)).length,yaSin=al.filter(a=>!idx.has(a.product_key)&&!nk.has(a.product_key)).length;
    if(!confirm(`Importar con «Reemplazar»:\n\n• Se quitarán ${quit} producto(s) del catálogo que no están en el archivo.\n• ${lost+yaSin} alias quedarán sin producto en el catálogo`+(yaSin?` (${lost} por esta importación y ${yaSin} que ya no tenían producto)`:'')+`.\n\nLos alias NO se borran: se siguen aplicando y esos códigos se cuentan como «no está en el catálogo».\n\n¿Continuar con la importación?`)){toast('Importación cancelada; no se cambió nada');return}}
   else if(!confirm('Se quitarán del catálogo los productos que no estén en el archivo. ¿Continuar?'))return}
  $('bMap').disabled=true;
  try{const r=await importCatalog(res.list,$('mRepl').checked,{file:tbl.file,sheet:tbl.sheet,h:hRow(),ic,id,ie});raw=null;tbl=null;$('mapBox').style.display='none';$('mProg').textContent='';
+  if(r.st){const s=r.st;toast(`Sucursal «${s.sucursal}»: ${s.productos_archivo} productos · ${s.nuevos} nuevos · ${s.reactivados} reactivados · ${s.actualizados} actualizados · ${s.desactivados} inactivos`+(res.dup?` · ${res.dup} repetidos sumados`:'')+(r.long?` · ${r.long} omitidos (código >64)`:'')+(r.layErr?' · ⚠️ no se pudo guardar el formato original: '+friendly(r.layErr):''),!!r.layErr)}else
   toast(`${r.n} productos importados`+(res.dup?` · ${res.dup} repetidos sumados`:'')+(res.skip?` · ${res.skip} filas sin código`:'')+(r.long?` · ${r.long} omitidos (código >64)`:'')+(r.layErr?' · ⚠️ no se pudo guardar el formato original: '+friendly(r.layErr):''),!!r.layErr);renderCat()}
  catch(e){toast('No se pudo importar: '+friendly(e),true)}finally{$('bMap').disabled=false}};
 let layBusy=false,layTry=0,layMeta;  // undefined = sin consultar; null = no hay formato guardado
-async function loadLayMeta(){if(!ws)return null;const{data,error}=await sb.from('catalog_layouts').select('id,file_name,sheet_name,created_at,ncols,row_count').eq('workspace_id',ws.id).eq('complete',true).order('created_at',{ascending:false}).limit(1);if(error)throw error;layMeta=data[0]||null;return layMeta}
+const layQ=q=>isAmb()?(brMode()?q.eq('branch_id',br.id):q.is('branch_id',null)):q;
+async function loadLayMeta(){if(!ws)return null;const{data,error}=await layQ(sb.from('catalog_layouts').select('id,file_name,sheet_name,created_at,ncols,row_count').eq('workspace_id',ws.id).eq('complete',true)).order('created_at',{ascending:false}).limit(1);if(error)throw error;layMeta=data[0]||null;return layMeta}
 function renderLay(){const el=$('layInfo');if(!el)return;
  if(layMeta===undefined){el.textContent='';if(!layBusy&&Date.now()-layTry>30000){layBusy=true;layTry=Date.now();loadLayMeta().then(renderLay).catch(()=>{}).finally(()=>{layBusy=false})}return}
  el.innerHTML=layMeta?`📄 Formato para exportar: <b>${esc(layMeta.file_name||'')}</b> · hoja «${esc(layMeta.sheet_name)}» · ${layMeta.ncols} columnas · importado ${fdate(layMeta.created_at)}. El Excel exportado respeta ese orden y agrega «Contado», «Diferencia» y «Estado».`:'📄 Aún no hay formato original guardado: el Excel se exporta en el formato estándar de la app. Vuelva a importar su catálogo (admin) para que la exportación respete su archivo.'}
 
 /* ============ pestaña Datos ============ */
-function renderCat(){if(!ws)return;const n=Object.keys(cnt).length;
- $('catInfo').innerHTML=cat.length?`<b>${cat.length}</b> productos en el catálogo · ${n} con conteo`+cat.slice(0,5).map(p=>`<div class="muted">${esc(p.c)} — ${esc(p.d)} (${fmt(p.e)})</div>`).join('')+(cat.length>5?'<div class="muted">…</div>':''):'<span class="muted">Aún no hay catálogo.'+(isAdmin()?' Importe un archivo abajo.':' Pida a un administrador que lo importe.')+'</span>';
+function renderCat(){if(!ws)return;const n=Object.keys(cnt).length;renderBranches();
+ $('catInfo').innerHTML=(brMode()?`🏬 Sucursal <b>${esc(br.name)}</b>${br.last_import?' · última importación '+fdate(br.last_import.fecha):' · aún sin importar'}<br>`:'')+(cat.length?`<b>${cat.length}</b> productos ${brMode()?'activos en esta sucursal'+(brOff?` (${brOff} inactivos ocultos)`:''):'en el catálogo'} · ${n} con conteo`+cat.slice(0,5).map(p=>`<div class="muted">${esc(p.c)} — ${esc(p.d)} (${fmt(p.e)})</div>`).join('')+(cat.length>5?'<div class="muted">…</div>':''):'<span class="muted">Aún no hay catálogo'+(brMode()?' en esta sucursal':'')+'.'+(isAdmin()?' Importe un archivo abajo.':' Pida a un administrador que lo importe.')+'</span>');
  $('wsName').textContent=ws.name;$('invCode').textContent=ws.invite_code;if(document.activeElement!==$('myName'))$('myName').value=ws.display_name||'';
  $('memList').innerHTML='<b>Miembros</b>'+members.map(m=>`<div class="mem"><div class="d">${esc(m.display_name||'(sin nombre)')}${m.user_id===user.id?' <small>(usted)</small>':''}<br><small>${m.role==='admin'?'administrador':'miembro'}</small></div>${isAdmin()&&m.user_id!==user.id?`${m.role==='admin'?'':`<button class="sec" data-mkadmin="${esc(m.user_id)}">Hacer admin</button>`}<button class="red" data-rm="${esc(m.user_id)}">Quitar</button>`:''}</div>`).join('');
  const cur=$('expSes').value;$('expSes').innerHTML=sessions.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.status==='open'?' (actual)':' · cerrado '+fdate(s.closed_at)}</option>`).join('');if(cur&&sessions.some(s=>s.id===cur))$('expSes').value=cur;else if(sess)$('expSes').value=sess.id;
- let used=0;try{used=(sget(K_CACHE+ws.id)||'').length+(sget(pendKey())||'').length}catch(e){}
- renderAli();$('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 10 (alias editables y recuperables)`;renderLay()}
+ let used=0;try{used=(sget(cacheKey())||'').length+(sget(pendKey())||'').length}catch(e){}
+ renderAli();$('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 11 (sucursales)`;renderLay();renderImpBr()}
 $('bCopy').onclick=async()=>{try{await navigator.clipboard.writeText(ws.invite_code);toast('Código copiado')}catch(e){toast('Código: '+ws.invite_code)}};
 $('bRot').onclick=async()=>{if(!confirm('El código anterior dejará de funcionar. ¿Generar uno nuevo?'))return;const{data,error}=await sb.rpc('rotate_invite_code',{p_ws:ws.id});if(error)return toast(friendly(error),true);ws.invite_code=data;renderCat()};
 $('bName').onclick=async()=>{const n=$('myName').value.trim();if(!n)return;const{error}=await sb.from('workspace_members').update({display_name:n.slice(0,60)}).eq('workspace_id',ws.id).eq('user_id',user.id);if(error)return toast(friendly(error),true);ws.display_name=n;toast('Nombre actualizado');loadMembers().catch(()=>{})};
@@ -1094,27 +1151,27 @@ $('bkpFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!
   else if(d.cnt&&typeof d.cnt==='object'&&!Array.isArray(d.cnt))ents=Object.values(d.cnt).filter(x=>x&&key(x.c)&&num(x.q)).map(x=>({id:uuid(),code:String(x.c).trim(),qty:num(x.q),n:'conteo local'}));
   if(!confirm(`Este respaldo tiene ${c.length} productos y ${ents.length} movimientos.\n¿Agregarlos al catálogo y conteo actuales?`))return;
   if(c.length)await importCatalog(c,false);
-  for(const x of ents){pending.push({id:x.id,ws:ws.id,sid:sess.id,code:x.code.slice(0,64),qty:r2(x.qty),note:('Respaldo: '+x.n).slice(0,200),t:Date.now(),name:ws.display_name})}
+  for(const x of ents){const pe={id:x.id,ws:ws.id,sid:sess.id,code:x.code.slice(0,64),qty:r2(x.qty),note:('Respaldo: '+x.n).slice(0,200),t:Date.now(),name:ws.display_name};if(brMode())pe.br=br.id;pending.push(pe)}
   savePending();refresh();await flush();toast('Respaldo importado')}
  catch(err){toast('Respaldo inválido: '+friendly(err),true)}};
 
 /* ============ cerrar y reiniciar conteo (solo admin, con 'autorizar') ============ */
 const resetOk=()=>norm($('mWord').value)==='AUTORIZAR';
 function modalClose(){$('modal').classList.remove('on');$('mWord').value='';$('mOk').disabled=true}
-$('bReset').onclick=()=>{if(!isAdmin())return;$('mSes').textContent=sess?sess.name:'';$('mWord').value='';$('mOk').disabled=true;$('modal').classList.add('on');setTimeout(()=>$('mWord').focus(),50)};
+$('bReset').onclick=()=>{if(!isAdmin())return;$('mSes').textContent=(sess?sess.name:'')+(isAmb()?(brMode()?' — sucursal '+br.name:' — Sin sucursal (antes de v11)'):'');$('mWord').value='';$('mOk').disabled=true;$('modal').classList.add('on');setTimeout(()=>$('mWord').focus(),50)};
 $('mWord').oninput=()=>{$('mOk').disabled=!resetOk()};
 $('mWord').onkeydown=e=>{if(e.key==='Enter'&&resetOk())$('mOk').click()};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('modal').classList.contains('on'))modalClose()});
 $('mCancel').onclick=modalClose;
 $('modal').onclick=e=>{if(e.target===$('modal'))modalClose()};
 $('mOk').onclick=async()=>{if(!resetOk()||!isAdmin())return;$('mOk').disabled=true;
- try{const{error}=await sb.rpc('close_session',{p_ws:ws.id,p_new_name:null});if(error)throw error;modalClose();clearSel();await syncSessions();toast('Conteo cerrado. Nuevo conteo iniciado.')}
+ try{const{error}=brMode()?await sb.rpc('close_branch_session',{p_branch:br.id,p_new_name:null}):await sb.rpc('close_session',{p_ws:ws.id,p_new_name:null});if(error)throw error;modalClose();clearSel();await syncSessions();toast('Conteo cerrado. Nuevo conteo iniciado.')}
  catch(e){toast('No se pudo reiniciar: '+friendly(e),true);$('mOk').disabled=!resetOk()}};
 
 /* ============ exportar .xlsx (datos compartidos) ============ */
 function cellObj(v,z){if(v==null||v==='')return null;if(typeof v==='number')return z?{t:'n',v,z}:{t:'n',v};if(typeof v==='boolean')return{t:'b',v};return{t:'s',v:String(v)}}
 async function layoutSheet(tot,firstEnt){   // reproduce la hoja original del catálogo + Contado / Diferencia / Estado
- const{data:L,error}=await sb.from('catalog_layouts').select('*').eq('workspace_id',ws.id).eq('complete',true).order('created_at',{ascending:false}).limit(1);
+ const{data:L,error}=await layQ(sb.from('catalog_layouts').select('*').eq('workspace_id',ws.id).eq('complete',true)).order('created_at',{ascending:false}).limit(1);
  if(error)throw error;const lay=L[0];if(!lay)return null;
  const rows=await fetchAll(()=>sb.from('catalog_rows').select('row_index,normalized_code,cells').eq('layout_id',lay.id).order('row_index'));
  const sh={},F=lay.formats||{},nc=lay.ncols,C1=nc,C2=nc+1,C3=nc+2;let maxR=0;
@@ -1154,7 +1211,7 @@ async function exportData(sid){let ents,sname;
  const C=[['Código','Cantidad','Contado por','Fecha','Nota']];for(const e of ents.slice().sort((a,b)=>a.t-b.t))C.push([e.c,e.q,e.n,new Date(e.t).toLocaleString('es-MX'),e.note||'']);
  const w2=XLSX.utils.aoa_to_sheet(B),w3=XLSX.utils.aoa_to_sheet(C);w2['!cols']=[{wch:20},{wch:14}];w3['!cols']=[{wch:16},{wch:10},{wch:20},{wch:18},{wch:30}];
  add(w2,'No en catálogo');add(w3,'Movimientos');
- return{wb,fallback,name:'conteo_'+String(sname).replace(/[^\w\-]+/g,'_')+'_'+today()+'.xlsx'}}
+ return{wb,fallback,name:'conteo_'+(brMode()?safeName(br.name)+'_':'')+String(sname).replace(/[^\w\-]+/g,'_')+'_'+today()+'.xlsx'}}
 async function doExport(sid){if(!hasLib('XLSX')){toast('No cargó la librería de Excel (¿sin internet?)',true);return}
  try{const r=await exportData(sid||(sess&&sess.id));XLSX.writeFile(r.wb,r.name);
   toast(r.fallback==='nolayout'?'Exportado en formato estándar (no hay formato original guardado; reimporte el catálogo para conservarlo)':r.fallback==='error'?'Exportado en formato estándar (no se pudo leer el formato original; ¿sin conexión?)':'Archivo exportado con el formato original')}catch(e){toast('Error al exportar: '+friendly(e),true)}}
@@ -1170,6 +1227,67 @@ function genLabels(){if(!hasLib('qrcode')){toast('No cargó el generador QR (¿s
  $('eInfo').textContent=ps.length+' etiquetas'}
 $('bGen').onclick=genLabels;$('eCols').onchange=()=>$('labels').style.setProperty('--cols',$('eCols').value);
 $('bPrint').onclick=()=>{if(!$('labels').children.length)genLabels();window.print()};
+
+/* ============ v11: sucursales (solo ambakity) ============ */
+const safeName=t=>String(t||'').replace(/[^\w\-]+/g,'_').slice(0,40);
+const brName=id=>{if(!id)return'Sin sucursal (antes de v11)';const b=branches.find(x=>x.id===id);return b?b.name:'(sucursal)'};
+const BR_COLS='id,name,created_at,archived_at,catalog_updated_at,last_import';
+async function loadBranches(first){if(!ws||!sb||!isAmb())return;const w=ws.id;
+ const{data,error,status}=await sb.from('branches').select(BR_COLS).eq('workspace_id',w).order('name');if(error){error.status=status;throw error}if(!ws||ws.id!==w)return;
+ branches=data;sset(K_BRS+w,JSON.stringify(data));
+ if(br){const nb=data.find(b=>b.id===br.id);
+  if(!nb||nb.archived_at){const nm=br.name;if(first){br=null;sset(K_BR+w,'');loadCache()}else{await setBranch('',true);toast('La sucursal «'+nm+'» fue archivada. Elija otra sucursal.',true);return}}
+  else{const ch=nb.catalog_updated_at!==brCatT;br=nb;if(ch&&!first)await loadProducts()}}
+ else if(first){const bid=sget(K_BR+w);const nb=bid&&data.find(b=>b.id===bid&&!b.archived_at);if(nb){br=nb;loadCache()}}
+ renderTop();renderBranches();renderBrSum();renderImpBr()}
+async function setBranch(id,quiet){if(!ws||!isAmb())return;const nb=id?branches.find(b=>b.id===id&&!b.archived_at):null;if(id&&!nb)return;
+ if((nb&&br&&nb.id===br.id)||(!nb&&!br&&sget(K_BR+ws.id)!==null)){brModalClose();return}
+ sset(K_BR+ws.id,nb?nb.id:'');br=nb||null;brCatT=null;brOff=0;
+ setMode(null);clearSel();sess=null;sessions=[];entries=new Map();cat=[];idx=new Map();cnt={};lastEntryT=lastProdT=0;rebuild();
+ layMeta=undefined;layTry=0;hist=[];hSeq++;histBusy=false;histLoaded=false;histMore=false;raw=null;tbl=null;$('mapBox').style.display='none';
+ loadCache();derive();brModalClose();renderTop();renderBrSum();refresh();if(!quiet)toast(nb?'📍 Sucursal: '+nb.name:'📍 Sin sucursal (antes de v11)');
+ if(tab==='hist')openHist();
+ await initialLoad();if(tab==='cat')renderCat();pollOnce()}
+function renderBranches(){const card=$('brCard');if(!card)return;card.classList.toggle('hide',!isAmb());if(!isAmb())return;
+ const act=branches.filter(b=>!b.archived_at),arc=branches.filter(b=>b.archived_at),adm=isAdmin();
+ const row=b=>{const on=brMode()&&br.id===b.id;return`<div class="brRow"><div class="d"><b>${esc(b.name)}</b>${on?' <small>✔ actual</small>':''}<br><small>${b.last_import?'importado '+fdate(b.last_import.fecha)+' · '+(b.last_import.activos||0)+' productos activos':'aún sin catálogo importado'}</small></div>${on?'':`<button class="sec" data-bruse="${esc(b.id)}">Usar</button>`}${adm?`<button class="sec" data-brren="${esc(b.id)}" aria-label="renombrar">✏️</button><button class="red" data-brarc="${esc(b.id)}" aria-label="archivar">🗄️</button>`:''}</div>`};
+ $('brList').innerHTML=(act.length?act.map(row).join(''):'<div class="muted">Aún no hay sucursales.'+(adm?' Cree la primera abajo.':' Un administrador debe crearlas.')+'</div>')
+  +`<div class="brRow"><div class="d"><b>Sin sucursal (antes de v11)</b>${!brMode()?' <small>✔ actual</small>':''}<br><small>conteos e historial anteriores a las sucursales</small></div>${brMode()?'<button class="sec" data-bruse="">Usar</button>':''}</div>`
+  +(adm&&arc.length?`<details style="margin-top:8px"><summary style="font-weight:700;min-height:44px;cursor:pointer">Sucursales archivadas (${arc.length})</summary>${arc.map(b=>`<div class="brRow"><div class="d"><b>${esc(b.name)}</b><br><small>archivada ${fdate(b.archived_at)}</small></div><button class="sec" data-brres="${esc(b.id)}">Restaurar</button></div>`).join('')}</details>`:'')}
+function renderImpBr(){const el=$('impBr');if(!el)return;const amb=isAmb(),hasBr=amb&&branches.some(b=>!b.archived_at);
+ el.classList.toggle('hide',!amb);
+ if(brMode()){el.innerHTML=`🏬 Se importará en la sucursal «${esc(br.name)}». Solo cambia el catálogo y las existencias de esta sucursal.`;$('mReplTxt').textContent='Reemplazar: marcar como inactivos EN ESTA SUCURSAL los productos que no estén en el archivo (no se borran)';$('mRepl').disabled=false}
+ else{el.innerHTML=amb?(hasBr?'📍 Está en «Sin sucursal (antes de v11)». Para importar el archivo de una sucursal, primero elija la sucursal (botón azul arriba).':''):'';$('mReplTxt').textContent=hasBr?'Reemplazar (desactivado: con sucursales, «Reemplazar» se hace dentro de cada sucursal)':'Reemplazar: quitar los productos que no estén en el archivo';$('mRepl').disabled=hasBr;if(hasBr)$('mRepl').checked=false}}
+function renderBrSum(){const el=$('brSum');if(!el)return;if(!isAmb()||!ws){el.classList.add('hide');return}el.classList.remove('hide');
+ if(!brMode()){const n=branches.filter(b=>!b.archived_at).length;el.innerHTML=`<b>📍 Sin sucursal (antes de v11)</b><div class="muted">Aquí están los conteos e historial anteriores a las sucursales${n?'. Para contar una sucursal, elíjala:':'.'}</div>`+(n?'<button class="sec" data-brpick style="width:100%;margin-top:8px">🏬 Elegir sucursal</button>':'');return}
+ const last=sessions.find(s=>s.status==='closed'),S=last&&last.summary,L=br.last_import;let h=`<b>🏬 ${esc(br.name)}</b>`;
+ if(last){h+=`<div style="margin-top:6px"><b>Último inventario cerrado:</b> ${esc(last.name)} · ${fdate(last.closed_at)}</div>`;
+  h+=S?`<div class="stats" style="margin-top:6px"><div><small>Correctos</small><b class="zero">${S.correctos}</b></div><div><small>Faltantes</small><b class="neg">${S.faltantes}</b></div><div><small>Sobrantes</small><b>${S.sobrantes}</b></div><div><small>Sin contar</small><b>${S.sin_contar}</b></div></div><div class="muted">Piezas: sistema ${fmt(num(S.piezas_sistema))} · contadas ${fmt(num(S.piezas_contadas))} · faltan ${fmt(num(S.piezas_faltantes))} · sobran ${fmt(num(S.piezas_sobrantes))}${S.no_en_catalogo?` · ${S.no_en_catalogo} códigos no estaban en el catálogo`:''}</div><button class="sec" data-brexp="${esc(last.id)}" style="width:100%;margin-top:6px">⬇️ Exportar ese inventario</button>`:'<div class="muted">(sin resumen)</div>'}
+ else h+='<div class="muted" style="margin-top:6px">Aún no hay inventarios cerrados en esta sucursal.</div>';
+ h+=L?`<div style="margin-top:6px"><b>Desde la última importación</b> (${fdate(L.fecha)}${L.reemplazar?', Reemplazar':''}): ${L.nuevos||0} nuevos · ${L.reactivados||0} reactivados · ${L.existencia_cambio||0} con cambio de existencia · ${L.desactivados||0} inactivos · ${L.activos||0} activos</div>`:'<div class="muted" style="margin-top:6px">Aún no se ha importado el catálogo de esta sucursal'+(isAdmin()?' (Datos → Importar catálogo).':'.')+'</div>';
+ el.innerHTML=h}
+$('brSum').onclick=e=>{if(e.target.closest('[data-brpick]'))brModalOpen();const x=e.target.closest('[data-brexp]');if(x)doExport(x.dataset.brexp)};
+function brModalOpen(){if(!isAmb())return;const act=branches.filter(b=>!b.archived_at);
+ $('brPickList').innerHTML=act.map(b=>`<button class="brPick ${brMode()&&br.id===b.id?'on':'sec'}" data-bruse="${esc(b.id)}">🏬 ${esc(b.name)}</button>`).join('')+`<button class="brPick sec ${!brMode()?'on':''}" data-bruse="">📁 Sin sucursal (antes de v11)</button>`+(act.length?'':'<div class="muted" style="margin-top:8px">Aún no hay sucursales. '+(isAdmin()?'Créelas en Datos → Sucursales.':'Un administrador debe crearlas.')+'</div>');
+ $('brModal').classList.add('on')}
+function brModalClose(){$('brModal').classList.remove('on')}
+function brAsk(){if(isAmb()&&!brMode()&&sget(K_BR+ws.id)===null&&branches.some(b=>!b.archived_at))brModalOpen()}
+$('tBr').onclick=brModalOpen;$('brPickX').onclick=()=>{if(sget(K_BR+ws.id)===null)sset(K_BR+ws.id,'');brModalClose()};
+$('brModal').onclick=e=>{if(e.target===$('brModal')){$('brPickX').click();return}const b=e.target.closest('[data-bruse]');if(b)setBranch(b.dataset.bruse)};
+const brErr=(what,e)=>{const m=String(e&&e.message||e||'');toast('No se pudo '+what+': '+(e&&e.code==='23505'||/duplicate|unique/i.test(m)?'ya existe una sucursal con ese nombre':friendly(e)),true)};
+$('brAdd').onclick=async()=>{const n=$('brNew').value.trim();if(!n){toast('Escriba el nombre de la sucursal',true);return}if(!isAdmin())return;$('brAdd').disabled=true;
+ try{const{data,error}=await sb.rpc('create_branch',{p_ws:ws.id,p_name:n.slice(0,60)});if(error)throw error;$('brNew').value='';await loadBranches();
+  if(confirm(`Sucursal «${n}» creada. ¿Usarla ahora en este teléfono?`))await setBranch(data);else toast('Sucursal creada')}
+ catch(e){brErr('crear la sucursal',e)}finally{$('brAdd').disabled=false}};
+$('brList').onclick=async e=>{const t=e.target.closest('button');if(!t)return;const d=t.dataset;
+ if(d.bruse!=null){setBranch(d.bruse);return}
+ if(!isAdmin())return;const id=d.brren||d.brarc||d.brres,b=branches.find(x=>x.id===id);if(!b)return;
+ try{if(d.brren){const n=prompt('Nuevo nombre de la sucursal «'+b.name+'»:',b.name);if(n==null||!n.trim()||n.trim()===b.name)return;
+   const{data,error}=await sb.from('branches').update({name:n.trim().slice(0,60)}).eq('id',b.id).select('id');if(error)throw error;if(!data.length)throw Object.assign(new Error('sin permiso'),{code:'42501'});toast('Sucursal renombrada')}
+  else if(d.brarc){if(!confirm(`¿Archivar la sucursal «${b.name}»?\n\nSe oculta de la lista; su catálogo, conteos e historial NO se borran y se puede restaurar después.`))return;
+   const{data,error}=await sb.from('branches').update({archived_at:new Date().toISOString()}).eq('id',b.id).select('id');if(error)throw error;if(!data.length)throw Object.assign(new Error('sin permiso'),{code:'42501'});toast('Sucursal archivada')}
+  else if(d.brres){const{data,error}=await sb.from('branches').update({archived_at:null}).eq('id',b.id).select('id');if(error)throw error;if(!data.length)throw Object.assign(new Error('sin permiso'),{code:'42501'});toast('Sucursal restaurada')}
+  await loadBranches()}catch(err){brErr(d.brren?'renombrar':d.brarc?'archivar':'restaurar',err)}};
 
 /* ============ autenticación ============ */
 let aMode='in';
@@ -1189,7 +1307,7 @@ $('aForgot').onclick=async()=>{const email=$('aEmail').value.trim();if(!email)re
 $('rGo').onclick=async()=>{const p=$('rPass').value;if(p.length<8){$('rMsg').textContent='Mínimo 8 caracteres';return}
  const{error}=await sb.auth.updateUser({password:p});if(error){$('rMsg').textContent=friendly(error);return}toast('Contraseña actualizada');await enter()};
 
-function resetSession(){needInit=false;layMeta=undefined;layTry=0;hist=[];hSeq++;histBusy=false;histLoaded=false;histMore=false;stopRealtime();clearInterval(pollT);ws=null;sess=null;sessions=[];members=[];cat=[];idx=new Map();entries=new Map();pending=[];cnt={};cur=null;lastEntryT=lastProdT=0;rebuild();document.body.classList.remove('is-admin')}
+function resetSession(){branches=[];br=null;brCatT=null;brOff=0;needInit=false;layMeta=undefined;layTry=0;hist=[];hSeq++;histBusy=false;histLoaded=false;histMore=false;stopRealtime();clearInterval(pollT);ws=null;sess=null;sessions=[];members=[];cat=[];idx=new Map();entries=new Map();pending=[];cnt={};cur=null;lastEntryT=lastProdT=0;rebuild();document.body.classList.remove('is-admin')}
 async function signOut(){const n=pending.filter(e=>!e.failed).length;if(n&&!confirm(`Hay ${n} movimientos sin enviar. Se conservan en este teléfono y se enviarán cuando vuelva a ingresar. ¿Salir?`))return;
  try{await sb.auth.signOut()}catch(e){}resetSession();user=null;screen('scrAuth')}
 $('bOut').onclick=signOut;$('oOut').onclick=signOut;
@@ -1218,9 +1336,10 @@ async function openWorkspace(m){
  stopRealtime();clearInterval(pollT);
  ws={id:m.workspace_id,name:m.workspaces.name,invite_code:m.workspaces.invite_code,role:m.role,display_name:m.display_name};
  sset(K_WS+user.id,ws.id);sbClose();cat=[];idx=new Map();entries=new Map();sess=null;cnt={};lastEntryT=lastProdT=0;rebuild();
+ branches=[];br=null;brOff=0;if(isAmb()){branches=jget(K_BRS+ws.id,[],Array.isArray);const bid=sget(K_BR+ws.id);br=branches.find(b=>b.id===bid&&!b.archived_at)||null}
  pending=loadPending();loadCache();derive();
  screen('scrMain');show('contar');renderTop();renderBadge();refresh();
- await initialLoad();startRealtime();startPoll();flush()}
+ await initialLoad();startRealtime();startPoll();flush();brAsk()}
 
 /* ============ arranque ============ */
 async function boot(){
@@ -1238,7 +1357,7 @@ async function boot(){
  if(session)await enter();else if($('scrRecov').classList.contains('hide'))screen('scrAuth')}
 window.APP={get cat(){return cat},get cnt(){return cnt},get cur(){return cur},get pending(){return pending},get entries(){return entries},get ws(){return ws},get sess(){return sess},get net(){return net},get rtOK(){return rtOK},
  ocrMatches,tokens,key,search,select,ocrPipeline,exportData,flush,pollOnce,derive,difRows,get hist(){return hist},
- onScan,suggest,loadAliases,flushScanQ,get ali(){return aliFor()},isAmb,AMB_WS,get scanSt(){return scanSt},get mode(){return mode},setMode,get torch(){return torch},get bc(){return{last:bcLast,n:bcN,vert:bcVert,...bcStats}},bcPick,bcNeed,sqGet};
+ onScan,suggest,loadAliases,flushScanQ,get ali(){return aliFor()},isAmb,AMB_WS,get scanSt(){return scanSt},get mode(){return mode},setMode,get torch(){return torch},get bc(){return{last:bcLast,n:bcN,vert:bcVert,...bcStats}},bcPick,bcNeed,sqGet,get br(){return br},get branches(){return branches},setBranch,loadBranches,brMode};
 /* ============ PWA: instalación, sin conexión y actualizaciones ============ */
 const PWA={reg:null,prompt:null,ver:null};
 const isStandalone=()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}};
