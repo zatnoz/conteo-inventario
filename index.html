@@ -466,7 +466,7 @@ async function loadProducts(){if(brMode())return loadBrProducts();const rows=awa
 async function loadBrProducts(){const b=br,rows=await fetchAll(()=>sb.from('branch_products').select('normalized_code,code,description,system_qty').eq('branch_id',b.id).eq('active',true).order('normalized_code'));
  if(br!==b&&!(br&&b&&br.id===b.id))return;cat=rows.map(r=>({id:'b:'+r.normalized_code,c:r.code,d:r.description||'',e:num(r.system_qty)}));rebuild();brCatT=b.catalog_updated_at||null;
  const{count}=await sb.from('branch_products').select('normalized_code',{count:'exact',head:true}).eq('branch_id',b.id).eq('active',false);brOff=count||0;
- loadAliases().catch(()=>{});refresh()}
+ loadAliases().catch(()=>{});loadAllCat().catch(()=>{});refresh()}
 async function loadEntries(){const rows=await fetchAll(()=>sb.from('count_entries').select(E_COLS).eq('session_id',sess.id).order('created_at').order('id'));
  entries=new Map(rows.map(r=>[r.id,toEntry(r)]));lastEntryT=0;for(const e of entries.values())if(e.t>lastEntryT)lastEntryT=e.t;refresh()}
 async function loadMembers(){const{data,error}=await sb.from('workspace_members').select('user_id,role,display_name').eq('workspace_id',ws.id).order('created_at');if(error)throw error;
@@ -532,9 +532,10 @@ async function sendBatch(batch){
  batch[0].failed=/row-level|42501|permission/i.test(error.message+error.code)?'El conteo ya fue cerrado o no tiene permiso':friendly(error);return'fail'}
 
 /* ============ búsqueda manual ============ */
-function search(q){const kq=key(q),ws=norm(q).split(/\s+/).filter(Boolean);if(!kq)return[];const out=[];
- for(const p of cat){let sc=-1;if(p._k===kq)sc=0;else if(p._k.startsWith(kq))sc=1;else if(ws.every(w=>p._s.includes(w)))sc=2;else if(kq.length>=2&&p._k.includes(kq))sc=3;if(sc>=0)out.push([sc,p])}
- out.sort((a,b)=>a[0]-b[0]);return out.slice(0,20).map(x=>x[1])}
+function search(q){return searchIn(q,cat,20).map(x=>x[1])}
+function searchIn(q,pool,lim){const kq=key(q),ws=norm(q).split(/\s+/).filter(Boolean);if(!kq)return[];const out=[];
+ for(const p of pool){let sc=-1;if(p._k===kq)sc=0;else if(p._k.startsWith(kq))sc=1;else if(ws.every(w=>p._s.includes(w)))sc=2;else if(kq.length>=2&&p._k.includes(kq))sc=3;if(sc>=0)out.push([sc,p])}
+ out.sort((a,b)=>a[0]-b[0]);return out.slice(0,lim)}
 $('busca').oninput=()=>{const q=$('busca').value,rs=search(q);let h=rs.map(p=>`<div data-c="${esc(p.c)}"><b>${esc(p.c)}</b> ${esc(p.d)}</div>`).join('');
  if(key(q)&&!findCode(q))h+=`<div data-c="${esc(q.trim())}">➕ Usar «<b>${esc(q.trim())}</b>» (no está en catálogo)</div>`;$('sug').innerHTML=h};
 $('busca').onkeydown=e=>{if(e.key==='Enter'){const f=$('sug').querySelector('div');if(f)select(f.dataset.c)}};
@@ -676,19 +677,35 @@ $('bcRot').onclick=()=>{bcVert=!bcVert;$('bcGuide').classList.toggle('vert',bcVe
 let scanSt=null;
 const SRC_ES={barras:'Código de barras',qr:'QR',ocr:'Texto (OCR)',foto:'Foto'};
 const z0=s=>s.replace(/^0+(?=.)/,'');
-function suggest(v){const k=key(v);if(!k)return[];const out=new Map();
+function suggest(v,pool=cat,lim=5){const k=key(v);if(!k)return[];const out=new Map();
  const add=(p,why,sc)=>{const o=out.get(p._k);if(!o||o.s>sc)out.set(p._k,{p,why,s:sc})};
  const kz=z0(k),vars=new Map();
  const addV=(x,why)=>{if(x.length>=3&&!vars.has(x))vars.set(x,why)};
  for(const[b,bw]of[[k,''],[kz,'ceros a la izquierda']]){if(b.length>3){addV(b.slice(1),bw||'un carácter de más al inicio');addV(b.slice(0,-1),bw||'un carácter de más al final (¿dígito verificador?)');if(b.length>4)addV(b.slice(1,-1),bw||'un carácter de más al inicio y al final')}}
  for(const[x,w]of[...vars])addV(z0(x),w);
- for(const p of cat){const pk=p._k,pz=z0(pk);if(pk===k)continue;
+ for(const p of pool){const pk=p._k,pz=z0(pk);if(pk===k)continue;
   if(pz===kz){add(p,'ceros a la izquierda',1);continue}
   if(vars.has(pk)){add(p,vars.get(pk),2);continue}if(vars.has(pz)){add(p,vars.get(pz)||'ceros a la izquierda',2.5);continue}
   if(pk.length>=4&&k.length>pk.length&&k.includes(pk)){add(p,'el código leído contiene este código',3+(k.length-pk.length)/100);continue}
   if(k.length>=4&&pk.length>k.length&&pk.length-k.length<=2&&pk.includes(k)){add(p,'código incompleto',4);continue}
   if(k.length>=5&&Math.abs(pk.length-k.length)<=1&&lev(k,pk)===1)add(p,'un carácter distinto',5)}
- return[...out.values()].sort((a,b)=>a.s-b.s||a.p._k.length-b.p._k.length).slice(0,5)}
+ return[...out.values()].sort((a,b)=>a.s-b.s||a.p._k.length-b.p._k.length).slice(0,lim)}
+/* v11.1 (solo ambakity): búsqueda inteligente sobre TODO el catálogo de la empresa (primero lo activo en la sucursal) */
+let allCat=[],allIdx=new Map(),allWs=null;const K_ALL='inv11_all_';
+function setAllCat(rows,w){allWs=w;allCat=rows.map(([c,d])=>{const p={c,d:d||''};p._k=key(c);p._s=norm(c+' '+p.d)+' '+p._k;return p});allIdx=new Map(allCat.map(p=>[p._k,p]))}
+function allPool(){if(!brMode())return cat;if(allWs!==ws.id){try{setAllCat(JSON.parse(sget(K_ALL+ws.id)||'[]'),ws.id)}catch(e){setAllCat([],ws.id)}}return allCat}
+async function loadAllCat(){if(!brMode()||!ws||!sb)return;const w=ws.id,rows=await fetchAll(()=>sb.from('products').select('code,description').eq('workspace_id',w).order('normalized_code'));
+ if(!ws||ws.id!==w)return;const r=rows.map(x=>[x.code,x.description||'']);setAllCat(r,w);try{localStorage.setItem(K_ALL+w,JSON.stringify(r))}catch(e){}
+ if(scanSt)sbEval();if(aliEdit)aliSugRender()}
+const anyGet=k=>idx.get(k)||(brMode()?(allPool(),allIdx.get(k)):undefined);
+function smartFind(q,lim=8){const k=key(q);if(!k)return[];const bm=brMode(),pool=bm?cat.concat(allPool().filter(p=>!idx.has(p._k))):cat,out=new Map();
+ const put=(p,why,sc)=>{const o=out.get(p._k);if(!o||o.s>sc)out.set(p._k,{p,why,s:sc})};
+ for(const x of suggest(q,pool,30))put(x.p,x.why,x.s);
+ const W=['código exacto','el código empieza así','coincide con la descripción','contiene lo escrito'],S=[0,1.5,3.5,4.5];
+ for(const[sc,p]of searchIn(q,pool,40))put(p,W[sc],S[sc]);
+ const r=[...out.values()];for(const x of r)x.br=!bm||idx.has(x.p._k);
+ return r.sort((a,b)=>(a.s?1:0)-(b.s?1:0)||(b.br-a.br)||a.s-b.s||a.p._k.length-b.p._k.length).slice(0,lim)}
+const sfWhy=x=>x.why+(x.br?'':' · no activo en esta sucursal');
 /* alias por empresa (lectura → código del catálogo) */
 let ali={ws:null,m:new Map(),list:[],hidden:[],all:[]};
 const K_ALI='inv9_ali_';
@@ -707,12 +724,12 @@ let aliEdit=null; // {id, v} alias en edición (ambakity)
 function renderAli(){const el=$('aliList');if(!el||!ws)return;const L=aliFor().list;
  if(!isAmb()){el.innerHTML=L.length?L.map(a=>`<div class="ali"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b><br><small>${esc(memberName(a.created_by))} · ${fdate(a.created_at)}</small></div>${isAdmin()?`<button class="red" data-ali="${esc(a.id)}">Borrar</button>`:''}</div>`).join(''):'<span class="muted">No hay alias guardados.</span>';return}
  if(aliEdit&&document.activeElement&&document.activeElement.id==='aliIn')return; // no re-dibujar mientras se escribe
- const miss=L.filter(a=>!idx.has(a.product_key)).length,H=ali.hidden;
- const row=a=>{const nf=!idx.has(a.product_key),p=idx.get(a.product_key);
-  if(aliEdit&&aliEdit.id===a.id){const v=aliEdit.v,pk=idx.get(key(v));return`<div class="ali" data-row="${esc(a.id)}"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <input id="aliIn" value="${esc(v)}" autocapitalize="characters" autocomplete="off" style="width:100%;font-size:18px;margin-top:4px"><br><small id="aliHint">${!key(v)?'Escriba el código del producto':pk?'✔ '+esc(pk.c)+' — '+esc(pk.d):'⚠️ no está en el catálogo actual'}</small><div class="row" style="margin-top:6px"><button class="grn" data-ali-save="${esc(a.id)}">Guardar</button><button class="sec" data-ali-cancel="1">Cancelar</button></div></div></div>`}
-  return`<div class="ali" data-row="${esc(a.id)}"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b>${nf?' <span class="sbNo" data-nf>⚠️ producto no encontrado</span>':` <small>${esc(p.d)}</small>`}<br><small>${esc(memberName(a.created_by))} · ${fdate(a.created_at)}${a.updated_at?' · editado '+fdate(a.updated_at):''}</small></div>${isAdmin()?`<button class="sec" data-ali-edit="${esc(a.id)}">Editar</button><button class="red" data-ali="${esc(a.id)}">Borrar</button>`:''}</div>`};
+ const miss=L.filter(a=>!anyGet(a.product_key)).length,H=ali.hidden;
+ const row=a=>{const p=anyGet(a.product_key),nf=!p,off=p&&!idx.has(a.product_key);
+  if(aliEdit&&aliEdit.id===a.id){const v=aliEdit.v;return`<div class="ali" data-row="${esc(a.id)}"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <input id="aliIn" value="${esc(v)}" placeholder="Código o parte de la descripción" autocapitalize="characters" autocomplete="off" style="width:100%;font-size:18px;margin-top:4px"><br><small id="aliHint">${esc(aliHintTxt(v))}</small><div class="sug" id="aliSug"></div><div class="row" style="margin-top:6px"><button class="grn" data-ali-save="${esc(a.id)}">Guardar</button><button class="sec" data-ali-cancel="1">Cancelar</button></div></div></div>`}
+  return`<div class="ali" data-row="${esc(a.id)}"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b>${nf?' <span class="sbNo" data-nf>⚠️ producto no encontrado</span>':` <small>${esc(p.d)}${off?' · no activo en esta sucursal':''}</small>`}<br><small>${esc(memberName(a.created_by))} · ${fdate(a.created_at)}${a.updated_at?' · editado '+fdate(a.updated_at):''}</small></div>${isAdmin()?`<button class="sec" data-ali-edit="${esc(a.id)}">Editar</button><button class="red" data-ali="${esc(a.id)}">Borrar</button>`:''}</div>`};
  el.innerHTML=(L.length?(miss?`<div class="muted" style="margin-bottom:6px">⚠️ ${miss} alias apuntan a productos que no están en el catálogo actual; se siguen aplicando y se cuentan como «no está en el catálogo».</div>`:'')+L.map(row).join(''):'<span class="muted">No hay alias guardados.</span>')
-  +(isAdmin()&&H.length?`<details id="aliHid" style="margin-top:10px"${aliHidOpen?' open':''}><summary style="font-weight:700;min-height:44px;cursor:pointer">Alias ocultos (${H.length})</summary>${H.map(a=>`<div class="ali"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b><br><small>oculto ${fdate(a.deleted_at)} por ${esc(memberName(a.deleted_by))}</small></div><button class="grn" data-ali-res="${esc(a.id)}">Restaurar</button></div>`).join('')}</details>`:'')}
+  +(isAdmin()&&H.length?`<details id="aliHid" style="margin-top:10px"${aliHidOpen?' open':''}><summary style="font-weight:700;min-height:44px;cursor:pointer">Alias ocultos (${H.length})</summary>${H.map(a=>`<div class="ali"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b><br><small>oculto ${fdate(a.deleted_at)} por ${esc(memberName(a.deleted_by))}</small></div><button class="grn" data-ali-res="${esc(a.id)}">Restaurar</button></div>`).join('')}</details>`:'');if(aliEdit)aliSugRender()}
 let aliHidOpen=false;
 const memberName=u=>{const m=(members||[]).find(x=>x.user_id===u);return m?(m.display_name||'(sin nombre)'):'—'};
 const aliErr=(what,e)=>{const m=String(e&&e.message||e||'');let t;
@@ -721,9 +738,13 @@ const aliErr=(what,e)=>{const m=String(e&&e.message||e||'');let t;
  else if(netFail(e,e&&e.status)||!navigator.onLine)t='sin conexión, intente de nuevo cuando haya internet';else t=friendly(e);toast(`No se pudo ${what}: ${t}`,true)};
 /* UPDATE devuelve 0 filas (sin error) cuando las reglas lo impiden: se trata como error */
 async function aliUpdate(id,patch){const{data,error,status}=await sb.from('code_aliases').update(patch).eq('id',id).select('id');if(error){error.status=status;throw error}if(!data||!data.length){const e=new Error('sin permiso');e.code='42501';throw e}}
-$('aliList').oninput=e=>{if(e.target.id==='aliIn'&&aliEdit){aliEdit.v=e.target.value;const pk=idx.get(key(aliEdit.v));$('aliHint').textContent=!key(aliEdit.v)?'Escriba el código del producto':pk?'✔ '+pk.c+' — '+pk.d:'⚠️ no está en el catálogo actual'}};
+function aliHintTxt(v){const pk=anyGet(key(v));return!key(v)?'Escriba el código o parte de la descripción y toque el producto':pk?'✔ '+pk.c+' — '+pk.d+(brMode()&&!idx.has(pk._k)?' (no activo en esta sucursal)':''):'⚠️ no está en el catálogo actual'}
+function aliSugRender(){const el=$('aliSug');if(!el||!aliEdit)return;const v=aliEdit.v,pk=anyGet(key(v));
+ const r=smartFind(v,10).filter(x=>!pk||x.p._k!==pk._k);el.innerHTML=r.length?`<div class="muted" style="padding:6px 0;border:0">${pk?'¿Otro producto?':'¿Quisiste decir…?'}</div>`+r.map(x=>`<div data-c="${esc(x.p.c)}"><b>${esc(x.p.c)}</b> ${esc(x.p.d)}<br><small class="muted">${esc(sfWhy(x))}</small></div>`).join(''):''}
+$('aliList').oninput=e=>{if(e.target.id==='aliIn'&&aliEdit){aliEdit.v=e.target.value;$('aliHint').textContent=aliHintTxt(aliEdit.v);aliSugRender()}};
 $('aliList').addEventListener('toggle',e=>{if(e.target.id==='aliHid')aliHidOpen=e.target.open},true);
 $('aliList').onclick=async e=>{
+ const sg=e.target.closest('#aliSug div[data-c]');if(sg&&aliEdit&&isAmb()){aliEdit.v=sg.dataset.c;const i=$('aliIn');if(i){i.value=aliEdit.v;i.focus()}$('aliHint').textContent=aliHintTxt(aliEdit.v);aliSugRender();return}
  if(!isAmb()){const b=e.target.closest('[data-ali]');if(!b||!isAdmin())return;const a=aliFor().list.find(x=>x.id===b.dataset.ali);if(!a)return;
   if(!confirm(`¿Borrar el alias «${a.alias_raw}» → ${a.product_code}?`))return;b.disabled=true;
   const{error}=await sb.from('code_aliases').delete().eq('id',a.id);if(error){toast('No se pudo borrar: '+friendly(error),true);b.disabled=false;return}
@@ -736,7 +757,7 @@ $('aliList').onclick=async e=>{
  if(!navigator.onLine){toast('Sin conexión: no se pueden cambiar los alias ahora. Intente cuando haya internet.',true);return}
  if(d.aliSave){const v=(aliEdit&&aliEdit.v||'').trim(),k=key(v);if(!k){toast('Escriba el código del producto',true);return}
   if(k===a.alias_key){toast('El alias no puede apuntar al mismo código leído',true);return}
-  const p=idx.get(k),code=p?p.c:v;if(k===a.product_key&&code===a.product_code){aliEdit=null;renderAli();return}
+  const p=anyGet(k),code=p?p.c:v;if(k===a.product_key&&code===a.product_code){aliEdit=null;renderAli();return}
   if(!p&&!confirm(`«${v}» no está en el catálogo actual. ¿Guardar el alias de todos modos?`))return;
   t.disabled=true;try{await aliUpdate(id,{product_code:code});aliEdit=null;toast(`✔ Alias actualizado: «${a.alias_raw}» → ${code}`)}catch(err){aliErr('guardar el alias',err);t.disabled=false;return}}
  else if(d.ali){if(!confirm(`¿Borrar el alias «${a.alias_raw}» → ${a.product_code}?\nSe ocultará y dejará de aplicarse; se puede restaurar en «Alias ocultos».`))return;
@@ -772,9 +793,10 @@ let remMode=null; // ambakity: 'nuevo' | 'actualizar' | null
 function sbEval(){if(!scanSt)return;const t=sbTarget();let m='',ch='';const rk=key(scanSt.raw),amb=isAmb();
  if(!t.k){m='<span class="sbNo">Escriba un código</span>'}
  else if(t.p){m=`<span class="sbOk">✔ En catálogo: ${esc(t.p.c)}</span><br>${esc(t.p.d)}`+(t.how==='alias'?`<br><small>Por alias guardado: «${esc(t.a.alias_raw)}» → ${esc(t.p.c)}</small>`:'')}
- else if(t.missing){m=`<span class="sbOk">✔ Alias guardado: «${esc(t.a.alias_raw)}» → ${esc(t.a.product_code)}</span><br><span class="sbNo">⚠️ ${esc(t.a.product_code)} ${brMode()?'no está activo en esta sucursal':'no está en el catálogo actual'}</span> — se puede contar igual (aparecerá como «no está en el catálogo»).`}
- else{const c=suggest(t.v);m=`<span class="sbNo">⚠️ «${esc(t.v)}» no está en el catálogo.</span>`+(c.length?'<br>¿Quisiste decir…?':'');
-  ch=c.map(x=>`<div class="chip near" data-c="${esc(x.p.c)}">${esc(x.p.c)}<small>${esc(x.p.d)}<br>${esc(x.why)}</small></div>`).join('')}
+ else if(t.missing){m=`<span class="sbOk">✔ Alias guardado: «${esc(t.a.alias_raw)}» → ${esc(t.a.product_code)}</span><br><span class="sbNo">⚠️ ${esc(t.a.product_code)} ${brMode()?'no está activo en esta sucursal':'no está en el catálogo actual'}</span> — se puede contar igual (aparecerá como «no está en el catálogo»).`;
+  const c=smartFind(t.v).filter(x=>x.p._k!==t.a.product_key);if(c.length){m+='<br>¿Quisiste decir…?';ch=c.map(x=>`<div class="chip near" data-c="${esc(x.p.c)}">${esc(x.p.c)}<small>${esc(x.p.d)}<br>${esc(sfWhy(x))}</small></div>`).join('')}}
+ else{const c=amb?smartFind(t.v):suggest(t.v);m=`<span class="sbNo">⚠️ «${esc(t.v)}» no está en ${amb&&brMode()?'esta sucursal':'el catálogo'}.</span>`+(c.length?'<br>¿Quisiste decir…?':'');
+  ch=c.map(x=>`<div class="chip near" data-c="${esc(x.p.c)}">${esc(x.p.c)}<small>${esc(x.p.d)}<br>${esc(amb?sfWhy(x):x.why)}</small></div>`).join('')}
  $('sbMatch').innerHTML=m;$('sbCands').innerHTML=ch;
  $('sbUse').textContent=!t.k?'Usar':t.p?(t.how==='alias'||key(t.p.c)!==t.k?`Usar ${t.p.c}`:'Usar'):t.missing?`Usar ${t.a.product_code}`:`Usar «${t.v}» (no está en catálogo)`;$('sbUse').disabled=!t.k;
  $('sbUse').className=t.p||t.missing||!ch?'grn':'sec';
@@ -791,7 +813,7 @@ function sbEval(){if(!scanSt)return;const t=sbTarget();let m='',ch='';const rk=k
 function sbClose(){scanSt=null;$('scanBox').style.display='none';$('sbCands').innerHTML='';coolUntil=Date.now()+1200;bcLast=null;bcN=0}
 function sbFinish(code,fromCand){if(!scanSt)return;const{raw,src}=scanSt,rk=key(raw),fk=key(code);
  const t=sbTarget(),viaAlias=!fromCand&&t.how==='alias';
- if(fk&&fk!==rk&&!viaAlias){const inCat=idx.has(fk),rem=inCat&&!$('sbRemBox').classList.contains('hide')&&$('sbRem').checked;
+ if(fk&&fk!==rk&&!viaAlias){const inCat=idx.has(fk)||(isAmb()&&!!anyGet(fk)),rem=inCat&&!$('sbRemBox').classList.contains('hide')&&$('sbRem').checked;
   const q=sqGet();q.push({t:'edit',id:uuid(),raw,final:code,src,rem,session_id:sess&&sess.id});
   if(rem&&isAmb()&&remMode==='actualizar'){const ex=aliFor().all.find(a=>a.alias_key===rk);
    if(ex&&!String(ex.id).startsWith('tmp-')){q.push({t:'alias_upd',id:uuid(),alias_id:ex.id,raw,final:code});ex.product_code=code;ex.product_key=fk;ex.deleted_at=null;setAli(ali.all)}
@@ -1129,7 +1151,7 @@ function renderCat(){if(!ws)return;const n=Object.keys(cnt).length;renderBranche
  $('memList').innerHTML='<b>Miembros</b>'+members.map(m=>`<div class="mem"><div class="d">${esc(m.display_name||'(sin nombre)')}${m.user_id===user.id?' <small>(usted)</small>':''}<br><small>${m.role==='admin'?'administrador':'miembro'}</small></div>${isAdmin()&&m.user_id!==user.id?`${m.role==='admin'?'':`<button class="sec" data-mkadmin="${esc(m.user_id)}">Hacer admin</button>`}<button class="red" data-rm="${esc(m.user_id)}">Quitar</button>`:''}</div>`).join('');
  const cur=$('expSes').value;$('expSes').innerHTML=sessions.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.status==='open'?' (actual)':' · cerrado '+fdate(s.closed_at)}</option>`).join('');if(cur&&sessions.some(s=>s.id===cur))$('expSes').value=cur;else if(sess)$('expSes').value=sess.id;
  let used=0;try{used=(sget(cacheKey())||'').length+(sget(pendKey())||'').length}catch(e){}
- renderAli();$('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 11 (sucursales)`;renderLay();renderImpBr()}
+ renderAli();$('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 11.1 (sucursales)`;renderLay();renderImpBr()}
 $('bCopy').onclick=async()=>{try{await navigator.clipboard.writeText(ws.invite_code);toast('Código copiado')}catch(e){toast('Código: '+ws.invite_code)}};
 $('bRot').onclick=async()=>{if(!confirm('El código anterior dejará de funcionar. ¿Generar uno nuevo?'))return;const{data,error}=await sb.rpc('rotate_invite_code',{p_ws:ws.id});if(error)return toast(friendly(error),true);ws.invite_code=data;renderCat()};
 $('bName').onclick=async()=>{const n=$('myName').value.trim();if(!n)return;const{error}=await sb.from('workspace_members').update({display_name:n.slice(0,60)}).eq('workspace_id',ws.id).eq('user_id',user.id);if(error)return toast(friendly(error),true);ws.display_name=n;toast('Nombre actualizado');loadMembers().catch(()=>{})};
