@@ -85,6 +85,47 @@ th:first-child,td:first-child{text-align:left}tr[data-k]{cursor:pointer}
 #labels{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:3mm}
 .lab{background:#fff;border:1px dashed #94a3b8;padding:2mm;text-align:center;break-inside:avoid;font-size:11px;overflow:hidden}
 .lab svg{width:100%;max-width:38mm;height:auto}.lab b{display:block;font-size:15px;word-break:break-all}
+
+/* v11.2: pantalla de captura compacta (solo ambakity): cámara arriba + panel de revisión fijo, sin desplazar la página */
+#tBr{min-height:44px}
+.camSz{display:none}
+#aliLink{display:none}#aliCard.ambAli>h2,#aliCard.ambAli>.muted{display:none}#aliCard.ambAli #aliLink{display:block}
+#aliLink button{width:100%;text-align:left;background:#e2e8f0;color:#0f172a}
+.aliC{padding:6px 0}.aliC .d{min-width:0;word-break:normal}.aliL{overflow-wrap:anywhere}.aliDs{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#475569}
+.aliM{display:none;font-size:13px;color:#64748b}.aliC.open .aliM{display:block}.aliC .d{cursor:pointer}.aliC .aliL{font-size:16px}.aliI{color:#64748b;font-size:13px}
+.aliC button{min-height:44px;min-width:44px;padding:4px 8px;font-size:18px}
+#aliTools{display:flex;gap:8px;margin-top:8px}#aliTools input{flex:3;min-width:0}#aliTools select{flex:1;min-width:0;min-height:48px}
+body.dock{overflow:hidden;padding-bottom:0;overscroll-behavior:none}
+body.dock #topbar br,body.dock #tSes{display:none}body.dock #tBr{margin:0 0 0 6px}
+body.dock #t-contar{position:fixed;left:0;right:0;top:var(--dockTop,110px);height:var(--dockH,70vh);max-width:720px;margin:0 auto;box-sizing:border-box;padding:6px max(8px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left));overflow:hidden;z-index:9;background:#eef0f4;display:flex;flex-direction:column}
+body.dock.kb #t-contar{z-index:20}
+body.dock #modeCard,body.dock #searchCard,body.dock #brSum{display:none!important}
+body.dock #bcCard,body.dock #ocrCard,body.dock #qrCard{padding:6px;margin:0;flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+body.dock #bcWrap,body.dock #camWrap{height:var(--camH,240px);min-height:0;position:sticky;top:0;z-index:2}
+body.dock #bcVid,body.dock #vid{height:100%;object-fit:cover;display:block}
+body.dock #qrWrap{position:relative}
+body.dock #reader{height:var(--camH,240px);overflow:hidden;background:#000;border-radius:12px}
+body.dock #reader video{height:var(--camH,240px)!important;width:100%!important;object-fit:cover}
+body.dock #bcMsg{font-size:14px;margin:4px 0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.dock #bcCard .row button,body.dock #ocrCard .row button,body.dock #ocrCard .torchBtn,body.dock #qrCard button{min-height:44px;font-size:15px;padding:6px}
+body.dock #bcZoomBox{margin:2px 0}
+body.dock .camSz{display:flex;position:absolute;top:6px;right:6px;z-index:4;gap:4px}
+body.dock .camSz button{min-height:44px;min-width:44px;padding:0;font-size:15px;background:rgba(15,23,42,.6);color:#fff;border:1px solid #fff8;border-radius:10px}
+body.dock .camSz button.on{background:#2563eb;border-color:#fff}
+body.dock.paused .camSz{display:none}
+body.dock.paused #bcWrap::after,body.dock.paused #camWrap::after,body.dock.paused #qrWrap::after{content:'⏸ En pausa';position:absolute;left:8px;top:8px;background:rgba(15,23,42,.8);color:#fff;padding:6px 12px;border-radius:999px;font-size:14px;font-weight:700;z-index:5}
+body.dock #scanBox,body.dock #prod{position:absolute;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:var(--sheetTop,50%);bottom:calc(6px + env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain;z-index:6;margin:0;padding:10px 10px 0;box-shadow:0 -6px 18px #0004}
+body.dock #sbAct,body.dock #pAct{position:sticky;bottom:0;background:#fff;padding:6px 0 8px;z-index:2}
+body.dock #sbAct{display:flex;gap:6px;align-items:stretch}
+body.dock #sbAct .row{flex:3;margin:0!important;gap:6px}
+body.dock #sbEdit{font-size:15px;padding:4px}body.dock #sbAgain{flex:1.3;width:auto!important;margin:0!important;font-size:14px;min-height:56px!important;padding:4px}
+body.dock #sbSrc{font-size:13px}body.dock #sbCode{font-size:20px;padding:8px}
+body.dock #sbMatch{font-size:16px}body.dock #scanBox .chip{min-height:44px}
+body.dock #pCod{font-size:20px}body.dock #pDesc{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.dock .stats{margin:6px 0}body.dock .stats b{font-size:18px}body.dock .stats small{font-size:11px}
+body.dock #pHist{display:none}body.dock #sWho{font-size:12px}
+body.dock .qty{margin:4px 0 6px}body.dock .qty button{width:64px;height:56px;font-size:34px}body.dock .qty input{height:56px;font-size:30px}
+body.dock #pAct .row button{min-height:52px}
 @media print{nav,.noprint,.banner,#toast{display:none!important}body{background:#fff;padding:0}main{max-width:none;padding:0}.tab{display:none!important}#t-etiq{display:block!important}#t-etiq .card{box-shadow:none;padding:0;margin:0}@page{margin:8mm}}
 .hide{display:none!important}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid2 button{min-height:60px;font-size:17px}
@@ -177,13 +218,14 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
  <button data-t="lista">Lista</button>
  <button data-t="dif">Diferencias</button>
  <button data-t="cat">Datos</button>
+ <button data-t="ali" id="navAli" class="hide">🔗 Alias</button>
  <button data-t="hist">Historial</button>
  <button data-t="etiq">Etiquetas QR</button>
 </nav>
 <main>
 <section class="tab on" id="t-contar">
  <div class="card hide" id="brSum"></div>
- <div class="card"><div class="grid2">
+ <div class="card" id="modeCard"><div class="grid2">
   <button id="bBc">▥ Código de barras</button><button id="bQr">📷 Escanear QR</button><button id="bOcr">🔤 Leer texto</button><button id="bMan" class="sec">⌨️ Manual</button>
  </div></div>
 
@@ -194,8 +236,8 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
   <div id="sbCands" class="chips"></div>
   <label id="sbRemBox" class="hide" style="display:block;margin-top:8px"><input type="checkbox" id="sbRem" checked style="width:24px;height:24px;vertical-align:middle"> <span id="sbRemTxt">Recordar esta corrección: la próxima vez que se lea «<b id="sbRemRaw"></b>» usar el código corregido</span></label>
   <div id="sbRemNote" class="muted hide" style="margin-top:8px"></div>
-  <div class="row" style="margin-top:8px"><button class="grn" id="sbUse" style="flex:2">Usar</button><button class="sec" id="sbEdit">✏️ Editar</button></div>
-  <button class="sec" id="sbAgain" style="width:100%;margin-top:8px;min-height:52px">📷 Volver a escanear</button>
+  <div id="sbAct"><div class="row" style="margin-top:8px"><button class="grn" id="sbUse" style="flex:2">Usar</button><button class="sec" id="sbEdit">✏️ Editar</button></div>
+  <button class="sec" id="sbAgain" style="width:100%;margin-top:8px;min-height:52px">📷 Volver a escanear</button></div>
  </div>
 
  <div class="card" id="prod" style="display:none">
@@ -208,12 +250,12 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
   </div>
   <div class="by" id="sWho"></div>
   <a class="hlink" id="pHist">🕘 Ver historial de este código</a>
-  <div class="qty"><button class="sec" id="qMenos" aria-label="menos">−</button><input id="qty" type="number" inputmode="numeric" value="1" aria-label="cantidad"><button class="sec" id="qMas" aria-label="más">+</button></div>
-  <div class="row"><button class="sec" id="bCancel">Cancelar</button><button class="grn" id="bAdd" style="flex:2">Agregar al conteo</button></div>
+  <div id="pAct"><div class="qty"><button class="sec" id="qMenos" aria-label="menos">−</button><input id="qty" type="number" inputmode="numeric" value="1" aria-label="cantidad"><button class="sec" id="qMas" aria-label="más">+</button></div>
+  <div class="row"><button class="sec" id="bCancel">Cancelar</button><button class="grn" id="bAdd" style="flex:2">Agregar al conteo</button></div></div>
  </div>
 
  <div class="card" id="ocrCard" style="display:none">
-  <div id="camWrap"><video id="vid" playsinline muted autoplay></video><div id="guide"></div></div>
+  <div id="camWrap"><video id="vid" playsinline muted autoplay></video><div id="guide"></div><div class="camSz" role="group" aria-label="tamaño de la cámara"><button type="button" data-camsz="S" aria-label="cámara chica">S</button><button type="button" data-camsz="M" aria-label="cámara mediana">M</button><button type="button" data-camsz="L" aria-label="cámara grande">L</button></div></div>
   <div class="muted" style="margin:6px 0">Ponga <b>una línea de código</b> dentro del rectángulo verde.</div>
   <div class="row"><button class="grn" id="bCap">📸 Capturar</button><button class="sec" id="bAuto">Auto: ON</button><button class="red" id="bOcrX">Cerrar</button></div>
   <button class="sec torchBtn hide" data-torch style="width:100%;margin-top:8px">🔦 Linterna</button><div class="muted torchNote hide" style="margin-top:6px"></div>
@@ -223,20 +265,20 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
  </div>
 
  <div class="card" id="qrCard" style="display:none">
-  <div id="reader"></div>
+  <div id="qrWrap"><div id="reader"></div><div class="camSz" role="group" aria-label="tamaño de la cámara"><button type="button" data-camsz="S" aria-label="cámara chica">S</button><button type="button" data-camsz="M" aria-label="cámara mediana">M</button><button type="button" data-camsz="L" aria-label="cámara grande">L</button></div></div>
   <button class="sec torchBtn hide" data-torch style="width:100%;margin-top:8px">🔦 Linterna</button><div class="muted torchNote hide" style="margin-top:6px"></div>
   <button class="red" id="bQrX" style="width:100%;margin-top:8px">Cerrar cámara</button>
  </div>
 
  <div class="card" id="bcCard" style="display:none">
-  <div id="bcWrap"><video id="bcVid" playsinline muted autoplay></video><div id="bcGuide"><div id="bcLine"></div></div></div>
+  <div id="bcWrap"><video id="bcVid" playsinline muted autoplay></video><div id="bcGuide"><div id="bcLine"></div></div><div class="camSz" role="group" aria-label="tamaño de la cámara"><button type="button" data-camsz="S" aria-label="cámara chica">S</button><button type="button" data-camsz="M" aria-label="cámara mediana">M</button><button type="button" data-camsz="L" aria-label="cámara grande">L</button></div></div>
   <div class="muted" id="bcMsg" style="margin:6px 0">Ponga <b>un solo</b> código de barras dentro de la franja verde, con la línea roja cruzando las barras.</div>
   <div id="bcZoomBox" class="hide"><label>🔍 Zoom <input type="range" id="bcZoom" min="1" max="2" step="0.1" value="1"></label></div>
   <div class="row"><button class="sec torchBtn hide" data-torch>🔦 Linterna</button><button class="sec" id="bcRot">↻ Girar guía</button><button class="red" id="bcX">Cerrar</button></div>
   <div class="muted torchNote hide" style="margin-top:6px"></div>
  </div>
 
- <div class="card">
+ <div class="card" id="searchCard">
   <input type="search" id="busca" placeholder="Código o descripción…" autocomplete="off" autocapitalize="characters" enterkeyhint="search">
   <div class="sug" id="sug"></div>
  </div>
@@ -265,6 +307,15 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
  <div class="card" style="padding:6px"><table id="dTab"></table><div id="dMore" class="muted"></div></div>
 </section>
 
+<section class="tab" id="t-ali">
+ <div class="card">
+  <h2>🔗 Alias de códigos</h2>
+  <div class="muted" style="font-size:14px">Cuando el escáner lee el código de la izquierda se usa el producto de la derecha. El catálogo no se modifica. <span id="aliPerm"></span></div>
+  <div id="aliTools"><input type="search" id="aliQ" placeholder="Buscar alias, código o descripción…" autocomplete="off" autocapitalize="characters" enterkeyhint="search" aria-label="buscar alias"><select id="aliF" aria-label="filtro"><option value="">Todos</option><option value="nf">⚠️ Con problema</option></select></div>
+  <div id="aliCount" class="muted" style="margin-top:6px;font-size:14px"></div>
+  <div id="aliHome"></div>
+ </div>
+</section>
 <section class="tab" id="t-cat">
  <div class="card" id="pwaCard">
   <h2>📲 Instalar app</h2>
@@ -306,6 +357,7 @@ nav{overflow-x:auto}nav button{flex:1 0 auto;padding-left:10px;padding-right:10p
  <div class="card admin-only" id="aliCard">
   <h2>Alias de códigos</h2>
   <div class="muted">Correcciones recordadas: cuando el escáner lee el código de la izquierda se usa el producto de la derecha. El catálogo no se modifica. Solo administradores pueden borrarlas.</div>
+  <div id="aliLink"><button type="button" id="aliGo">🔗 <span id="aliN">0</span> alias<span id="aliNp"></span> → Ver</button></div>
   <div id="aliList" style="margin-top:8px"></div>
  </div>
  <div class="card">
@@ -546,21 +598,21 @@ $('bMan').onclick=()=>{setMode(null);$('busca').focus()};
 let tab='contar';
 function show(t){tab=t;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
  if(t!=='contar')setMode(null);
- if(t==='lista')renderList();if(t==='dif')renderDif();if(t==='cat')renderCat();if(t==='hist')openHist();window.scrollTo(0,0)}
+ if(t==='lista')renderList();if(t==='dif')renderDif();if(t==='cat')renderCat();if(t==='hist')openHist();if(t==='ali')renderAli();window.scrollTo(0,0);layoutDock()}
 $('nav').onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.t)};
 const SCREENS=['scrLoad','scrAuth','scrRecov','scrOnb','scrMain'];
 function screen(s){SCREENS.forEach(x=>$(x).classList.toggle('hide',x!==s));window.scrollTo(0,0)}
 function applyRole(){document.body.classList.toggle('is-admin',isAdmin());$('tRole').textContent=isAdmin()?'(administrador)':'(miembro)';$('myRole').textContent=isAdmin()?'administrador':'miembro'}
 function renderTop(){if(!ws)return;$('tWs').textContent=ws.name;$('tSes').textContent=sess?('Conteo: '+sess.name):'';applyRole();
- const t=$('tBr');if(t){t.classList.toggle('hide',!isAmb());t.classList.toggle('legacy',!brMode());t.textContent=brMode()?'📍 '+br.name+' ▾':'📍 Sin sucursal (antes de v11) ▾'}}
+ const t=$('tBr');if(t){t.classList.toggle('hide',!isAmb());t.classList.toggle('legacy',!brMode());t.textContent=brMode()?'📍 '+br.name+' ▾':'📍 Sin sucursal (antes de v11) ▾'}placeAli();layoutDock()}
 
 /* ============ producto seleccionado ============ */
 let coolUntil=0;
 function select(code){const raw=String(code==null?'':code).trim(),k=key(raw);if(!k)return;
  const p=idx.get(k);cur=p?{c:p.c,d:p.d,e:p.e,k,inCat:true}:{c:(cnt[k]&&cnt[k].c)||raw,d:'(No está en el catálogo)',e:null,k,inCat:false};
  $('pCod').textContent=cur.c;$('pDesc').textContent=cur.d;$('qty').value=1;$('prod').style.display='block';$('sug').innerHTML='';$('busca').value='';updStats();
- $('prod').scrollIntoView({behavior:'smooth',block:'start'})}
-function clearSel(){cur=null;$('prod').style.display='none';coolUntil=Date.now()+2500}
+ if(dockOn())layoutDock();else $('prod').scrollIntoView({behavior:'smooth',block:'start'})}
+function clearSel(){cur=null;$('prod').style.display='none';coolUntil=Date.now()+2500;layoutDock()}
 const byText=o=>Object.entries(o||{}).filter(x=>x[1]!==0).map(([n,q])=>esc(n)+' '+fmt(q)).join(' · ');
 function updStats(){if(!cur)return;const o=cnt[cur.k],l=o?o.q:0,q=num($('qty').value),e=cur.e;
  const set=(id,t,c)=>{$(id).textContent=t;$(id).className=c||''};
@@ -573,7 +625,7 @@ $('qty').oninput=updStats;$('qty').onfocus=()=>$('qty').select();
 $('bCancel').onclick=clearSel;
 $('bAdd').onclick=()=>{if(!cur)return;const q=num($('qty').value);if(!q){toast('La cantidad es 0',true);return}
  const c=cur.c;if(!addEntry(c,q))return;
- toast(`✔ ${c}: ${q>0?'+':''}${fmt(q)}`+(navigator.onLine?'':' (se enviará al reconectar)'));clearSel();$('chips').innerHTML='';$('ocrMsg').textContent=''};
+ toast(`✔ ${c}: ${q>0?'+':''}${fmt(q)}`+(navigator.onLine?'':' (se enviará al reconectar)'));if(dockOn()){try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}clearSel();$('chips').innerHTML='';$('ocrMsg').textContent=''};
 
 /* ============ modo cámara ============ */
 let mode=null;
@@ -582,14 +634,41 @@ async function setMode(m){if(m===mode)return;const old=mode;mode=null;
  if(old==='ocr')ocrStop();if(old==='qr')await qrStop();if(old==='bc')bcStop();
  ['bOcr','bQr','bBc'].forEach(b=>$(b).classList.remove('act'));['ocrCard','qrCard','bcCard'].forEach(c=>$(c).style.display='none');
  if(m)audioUnlock();
- if(m==='ocr'){mode='ocr';$('bOcr').classList.add('act');$('ocrCard').style.display='block';await ocrStart()}
- else if(m==='qr'){mode='qr';$('bQr').classList.add('act');$('qrCard').style.display='block';await qrStart()}
- else if(m==='bc'){mode='bc';$('bBc').classList.add('act');$('bcCard').style.display='block';await bcStart()}
- torchRender()}
+ if(m==='ocr'){mode='ocr';$('bOcr').classList.add('act');$('ocrCard').style.display='block';layoutDock();await ocrStart()}
+ else if(m==='qr'){mode='qr';$('bQr').classList.add('act');$('qrCard').style.display='block';layoutDock();await qrStart()}
+ else if(m==='bc'){mode='bc';$('bBc').classList.add('act');$('bcCard').style.display='block';layoutDock();await bcStart()}
+ torchRender();layoutDock()}
 $('bOcr').onclick=()=>setMode(mode==='ocr'?null:'ocr');$('bQr').onclick=()=>setMode(mode==='qr'?null:'qr');$('bBc').onclick=()=>setMode(mode==='bc'?null:'bc');
 $('bOcrX').onclick=()=>setMode(null);$('bQrX').onclick=()=>setMode(null);$('bcX').onclick=()=>setMode(null);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode)setMode(null)});
 
+/* ---- v11.2: pantalla de captura compacta (solo ambakity) ----
+   La cámara queda arriba con tamaño fijo (S/M/L, recordado en este teléfono) y el cuadro de revisión / cantidad
+   aparece como panel fijo debajo de la cámara: nunca hay que desplazar la página. Con el teclado abierto se usa visualViewport. */
+var K_CAMSZ='inv112_camsz',CAMF={S:.28,M:.36,L:.48};
+var camSz=(()=>{const v=sget(K_CAMSZ);return CAMF[v]?v:'M'})(),dockWas=false,dockFullH=0,dockW=0,dockRaf=0;
+function dockOn(){return isAmb()&&!!mode&&tab==='contar'}
+function layoutDock(){const on=dockOn(),b=document.body;if(on&&!dockWas)window.scrollTo(0,0);dockWas=on;
+ b.classList.toggle('dock',on);b.classList.toggle('paused',on&&!!(scanSt||cur));if(!on){b.classList.remove('kb');return}
+ const vv=window.visualViewport,H=innerHeight,vh=vv?vv.height:H,ot=vv?vv.offsetTop:0;
+ if(innerWidth!==dockW){dockW=innerWidth;dockFullH=0}dockFullH=Math.max(dockFullH,H,vh);
+ const ae=document.activeElement,typing=!!ae&&(ae.id==='sbCode'||ae.id==='qty'),kb=typing&&vh<dockFullH*.8;b.classList.toggle('kb',kb);
+ const nb=kb?0:Math.max(0,Math.round($('nav').getBoundingClientRect().bottom)),top=kb?ot:nb,h=Math.max(200,Math.round(kb?vh:vh+ot-nb));
+ const camH=Math.round(kb?Math.max(80,vh*.22):Math.max(120,dockFullH*CAMF[camSz])),st=document.documentElement.style;
+ st.setProperty('--dockTop',top+'px');st.setProperty('--dockH',h+'px');st.setProperty('--camH',camH+'px');
+ const w=$(mode==='bc'?'bcWrap':mode==='ocr'?'camWrap':'qrWrap'),sec=$('t-contar');
+ if(w)st.setProperty('--sheetTop',Math.max(60,Math.round(w.getBoundingClientRect().bottom-sec.getBoundingClientRect().top+6))+'px');
+ document.querySelectorAll('[data-camsz]').forEach(x=>x.classList.toggle('on',x.dataset.camsz===camSz))}
+const dockSoon=()=>{if(dockRaf)return;dockRaf=requestAnimationFrame(()=>{dockRaf=0;layoutDock()})};
+window.addEventListener('resize',dockSoon);window.addEventListener('orientationchange',()=>setTimeout(layoutDock,300));
+if(window.visualViewport){visualViewport.addEventListener('resize',dockSoon);visualViewport.addEventListener('scroll',dockSoon)}
+document.addEventListener('focusin',()=>{if(dockOn()){dockSoon();setTimeout(layoutDock,350)}});document.addEventListener('focusout',()=>{if(dockOn())setTimeout(layoutDock,120)});
+window.addEventListener('scroll',()=>{if(document.body.classList.contains('dock')&&!document.body.classList.contains('kb')&&window.scrollY)window.scrollTo(0,0)},{passive:true});
+document.addEventListener('click',e=>{const x=e.target.closest('[data-camsz]');if(!x)return;e.preventDefault();e.stopPropagation();camSz=x.dataset.camsz;sset(K_CAMSZ,camSz);layoutDock()},true);
+/* recorte de la imagen: con object-fit:cover el video se ve recortado; la guía se traduce al cuadro realmente visible */
+function vbox(v,fx,fy,fw,fh){const W=v.videoWidth,H=v.videoHeight;let ox=0,oy=0,vw=W,vh=H;
+ if(document.body.classList.contains('dock')&&v.clientWidth&&v.clientHeight&&W&&H){const s=Math.max(v.clientWidth/W,v.clientHeight/H);vw=Math.min(W,v.clientWidth/s);vh=Math.min(H,v.clientHeight/s);ox=(W-vw)/2;oy=(H-vh)/2}
+ return[ox+vw*fx,oy+vh*fy,vw*fw,vh*fh].map(Math.round)}
 
 /* ---- linterna (torch) ---- */
 const IS_IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -636,7 +715,7 @@ async function bcDecode(c){const D=bcDet;
  return r.filter(x=>x.isValid&&x.text).map(x=>({text:x.text,format:x.format,box:quadBox(x.position)}))}
 /* franja → canvas; si la guía está vertical se gira 90° para que las barras queden horizontales */
 let bcCan=null;
-function bcCrop(v){const W=v.videoWidth,H=v.videoHeight;const[cx,cy,cw,ch]=(bcVert?[W*.39,H*.05,W*.22,H*.9]:[W*.05,H*.39,W*.9,H*.22]).map(Math.round);
+function bcCrop(v){const[cx,cy,cw,ch]=bcVert?vbox(v,.39,.05,.22,.9):vbox(v,.05,.39,.9,.22);
  let sc=1;const L=Math.max(cw,ch);if(L>1920)sc=1920/L;const w=Math.round(cw*sc),h=Math.round(ch*sc);
  const c=bcCan||(bcCan=document.createElement('canvas')),g=c.getContext('2d',{willReadFrequently:true});
  if(bcVert){c.width=h;c.height=w;g.setTransform(0,-1,1,0,0,w);g.drawImage(v,cx,cy,cw,ch,0,0,w,h);g.setTransform(1,0,0,1,0,0)}
@@ -721,14 +800,25 @@ async function loadAliases(){if(!ws||!sb)return;const w=ws.id;let data,error;
  if(error||!ws||ws.id!==w)return;aliFor();setAli(data||[]);sset(K_ALI+w,JSON.stringify(data||[]));renderAli()}
 function aliHit(k){const a=aliFor().m.get(k);if(!a)return null;const p=idx.get(a.product_key);return p?{a,p}:(isAmb()?{a,p:null,missing:true}:null)}
 let aliEdit=null; // {id, v} alias en edición (ambakity)
-function renderAli(){const el=$('aliList');if(!el||!ws)return;const L=aliFor().list;
+/* v11.2: en ambakity los alias tienen su propia sección (🔗 Alias) con búsqueda, filas compactas y páginas */
+var ALI_PG=30,aliPage=1;
+function placeAli(){const el=$('aliList');if(!el||!ws)return;const amb=isAmb(),home=amb?$('aliHome'):$('aliCard');if(home&&el.parentNode!==home)home.appendChild(el);
+ $('navAli').classList.toggle('hide',!amb);$('aliCard').classList.toggle('ambAli',amb);if(!amb&&tab==='ali')show('contar')}
+function renderAli(){const el=$('aliList');if(!el||!ws)return;placeAli();const L=aliFor().list;
  if(!isAmb()){el.innerHTML=L.length?L.map(a=>`<div class="ali"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b><br><small>${esc(memberName(a.created_by))} · ${fdate(a.created_at)}</small></div>${isAdmin()?`<button class="red" data-ali="${esc(a.id)}">Borrar</button>`:''}</div>`).join(''):'<span class="muted">No hay alias guardados.</span>';return}
  if(aliEdit&&document.activeElement&&document.activeElement.id==='aliIn')return; // no re-dibujar mientras se escribe
  const miss=L.filter(a=>!anyGet(a.product_key)).length,H=ali.hidden;
+ $('aliN').textContent=L.length;$('aliNp').textContent=miss?` (⚠️ ${miss} sin producto)`:'';$('aliPerm').textContent=isAdmin()?'':'Solo los administradores pueden editarlos u ocultarlos.';
+ const qv=($('aliQ').value||'').trim(),qk=key(qv),ql=qv.toLowerCase(),fl=$('aliF').value;
+ const match=a=>{if(fl==='nf'){const p=anyGet(a.product_key);if(p&&idx.has(a.product_key))return false}if(!ql)return true;
+  if(qk&&(String(a.alias_key||'').includes(qk)||String(a.product_key||'').includes(qk)))return true;const p=anyGet(a.product_key);
+  return String(a.alias_raw||'').toLowerCase().includes(ql)||String(a.product_code||'').toLowerCase().includes(ql)||!!(p&&String(p.d||'').toLowerCase().includes(ql))};
+ const F=L.filter(match),N=aliPage*ALI_PG,V=F.slice(0,N);if(aliEdit&&!V.some(a=>a.id===aliEdit.id)){const e=L.find(a=>a.id===aliEdit.id);if(e)V.unshift(e)}
+ $('aliCount').textContent=L.length?(F.length===L.length?`${L.length} alias`:`${F.length} de ${L.length} alias`)+(F.length>N?` · mostrando ${N}`:''):'';
  const row=a=>{const p=anyGet(a.product_key),nf=!p,off=p&&!idx.has(a.product_key);
   if(aliEdit&&aliEdit.id===a.id){const v=aliEdit.v;return`<div class="ali" data-row="${esc(a.id)}"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <input id="aliIn" value="${esc(v)}" placeholder="Código o parte de la descripción" autocapitalize="characters" autocomplete="off" style="width:100%;font-size:18px;margin-top:4px"><br><small id="aliHint">${esc(aliHintTxt(v))}</small><div class="sug" id="aliSug"></div><div class="row" style="margin-top:6px"><button class="grn" data-ali-save="${esc(a.id)}">Guardar</button><button class="sec" data-ali-cancel="1">Cancelar</button></div></div></div>`}
-  return`<div class="ali" data-row="${esc(a.id)}"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b>${nf?' <span class="sbNo" data-nf>⚠️ producto no encontrado</span>':` <small>${esc(p.d)}${off?' · no activo en esta sucursal':''}</small>`}<br><small>${esc(memberName(a.created_by))} · ${fdate(a.created_at)}${a.updated_at?' · editado '+fdate(a.updated_at):''}</small></div>${isAdmin()?`<button class="sec" data-ali-edit="${esc(a.id)}">Editar</button><button class="red" data-ali="${esc(a.id)}">Borrar</button>`:''}</div>`};
- el.innerHTML=(L.length?(miss?`<div class="muted" style="margin-bottom:6px">⚠️ ${miss} alias apuntan a productos que no están en el catálogo actual; se siguen aplicando y se cuentan como «no está en el catálogo».</div>`:'')+L.map(row).join(''):'<span class="muted">No hay alias guardados.</span>')
+  return`<div class="ali aliC" data-row="${esc(a.id)}"><div class="d" data-ali-tog="1" title="Toque para ver detalles"><div class="aliL"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b></div>${nf?'<span class="sbNo" data-nf>⚠️ producto no encontrado</span>':`<small class="aliDs" title="${esc(p.d)}">${off?'<b style="color:#b45309">no activo en esta sucursal</b> · ':''}${esc(p.d)}</small>`}<div class="aliM">Creado por ${esc(memberName(a.created_by))} · ${fdate(a.created_at)}${a.updated_at?' · editado '+fdate(a.updated_at):''}</div></div>${isAdmin()?`<button class="sec" data-ali-edit="${esc(a.id)}" title="Editar" aria-label="Editar">✏️</button><button class="red" data-ali="${esc(a.id)}" title="Borrar (ocultar)" aria-label="Borrar">🗑️</button>`:''}</div>`};
+ el.innerHTML=(L.length?(miss?`<div class="muted" style="margin-bottom:6px;font-size:14px">⚠️ ${miss} alias apuntan a productos que no están en el catálogo actual; se siguen aplicando y se cuentan como «no está en el catálogo».</div>`:'')+(V.length?V.map(row).join(''):'<span class="muted">Ningún alias coincide con la búsqueda.</span>')+(F.length>N?`<button class="sec" data-ali-more="1" style="width:100%;margin-top:8px">Mostrar más (${F.length-N} restantes)</button>`:''):'<span class="muted">No hay alias guardados.</span>')
   +(isAdmin()&&H.length?`<details id="aliHid" style="margin-top:10px"${aliHidOpen?' open':''}><summary style="font-weight:700;min-height:44px;cursor:pointer">Alias ocultos (${H.length})</summary>${H.map(a=>`<div class="ali"><div class="d"><b>«${esc(a.alias_raw)}»</b> → <b>${esc(a.product_code)}</b><br><small>oculto ${fdate(a.deleted_at)} por ${esc(memberName(a.deleted_by))}</small></div><button class="grn" data-ali-res="${esc(a.id)}">Restaurar</button></div>`).join('')}</details>`:'');if(aliEdit)aliSugRender()}
 let aliHidOpen=false;
 const memberName=u=>{const m=(members||[]).find(x=>x.user_id===u);return m?(m.display_name||'(sin nombre)'):'—'};
@@ -742,6 +832,7 @@ function aliHintTxt(v){const pk=anyGet(key(v));return!key(v)?'Escriba el código
 function aliSugRender(){const el=$('aliSug');if(!el||!aliEdit)return;const v=aliEdit.v,pk=anyGet(key(v));
  const r=smartFind(v,10).filter(x=>!pk||x.p._k!==pk._k);el.innerHTML=r.length?`<div class="muted" style="padding:6px 0;border:0">${pk?'¿Otro producto?':'¿Quisiste decir…?'}</div>`+r.map(x=>`<div data-c="${esc(x.p.c)}"><b>${esc(x.p.c)}</b> ${esc(x.p.d)}<br><small class="muted">${esc(sfWhy(x))}</small></div>`).join(''):''}
 $('aliList').oninput=e=>{if(e.target.id==='aliIn'&&aliEdit){aliEdit.v=e.target.value;$('aliHint').textContent=aliHintTxt(aliEdit.v);aliSugRender()}};
+$('aliQ').oninput=()=>{aliPage=1;renderAli()};$('aliF').onchange=()=>{aliPage=1;renderAli()};$('aliGo').onclick=()=>show('ali');
 $('aliList').addEventListener('toggle',e=>{if(e.target.id==='aliHid')aliHidOpen=e.target.open},true);
 $('aliList').onclick=async e=>{
  const sg=e.target.closest('#aliSug div[data-c]');if(sg&&aliEdit&&isAmb()){aliEdit.v=sg.dataset.c;const i=$('aliIn');if(i){i.value=aliEdit.v;i.focus()}$('aliHint').textContent=aliHintTxt(aliEdit.v);aliSugRender();return}
@@ -749,7 +840,8 @@ $('aliList').onclick=async e=>{
   if(!confirm(`¿Borrar el alias «${a.alias_raw}» → ${a.product_code}?`))return;b.disabled=true;
   const{error}=await sb.from('code_aliases').delete().eq('id',a.id);if(error){toast('No se pudo borrar: '+friendly(error),true);b.disabled=false;return}
   toast('Alias borrado');await loadAliases();return}
- const t=e.target.closest('button');if(!t||!isAdmin())return;const d=t.dataset;
+ const t=e.target.closest('button');if(t&&t.dataset.aliMore){aliPage++;renderAli();return}
+ if(!t){const g=e.target.closest('[data-ali-tog]');if(g&&!e.target.closest('input,#aliSug')){g.parentNode.classList.toggle('open')}return}if(!t||!isAdmin())return;const d=t.dataset;
  if(d.aliCancel){aliEdit=null;renderAli();return}
  if(d.aliEdit){const a=ali.list.find(x=>x.id===d.aliEdit);if(!a)return;aliEdit={id:a.id,v:a.product_code};renderAli();const i=$('aliIn');if(i){i.focus();i.select()}return}
  const id=d.aliSave||d.ali||d.aliRes;if(!id)return;const a=ali.all.find(x=>x.id===id);if(!a)return;
@@ -784,7 +876,7 @@ async function flushScanQ(){if(sqBusy||!ws||!user||!navigator.onLine)return;let 
 function onScan(raw,src){raw=String(raw==null?'':raw).replace(/[\u0000-\u001f]/g,'').trim();if(!raw||scanSt||cur)return;
  scanSt={raw,src};$('sbSrc').textContent='Leído con '+(SRC_ES[src]||src)+' — revise el código antes de usarlo:';
  $('sbCode').value=raw;if($('sbRemRaw'))$('sbRemRaw').textContent=raw;$('scanBox').style.display='block';sbEval();
- $('scanBox').scrollIntoView({behavior:'smooth',block:'start'})}
+ if(dockOn()){layoutDock();$('scanBox').scrollTop=0}else $('scanBox').scrollIntoView({behavior:'smooth',block:'start'})}
 /* resultado para el texto actual del cuadro */
 function sbTarget(){const v=$('sbCode').value.trim(),k=key(v);if(!k)return{v,k,p:null};
  const p=idx.get(k);if(p)return{v,k,p,how:'exacto'};const h=aliHit(k);if(h)return{v,k,p:h.p,how:'alias',a:h.a,missing:!!h.missing};return{v,k,p:null}}
@@ -810,7 +902,7 @@ function sbEval(){if(!scanSt)return;const t=sbTarget();let m='',ch='';const rk=k
    $('sbRemTxt').innerHTML=`${ex.deleted_at?'Restaurar y actualizar el alias oculto':'Actualizar el alias guardado'}: «<b>${esc(scanSt.raw)}</b>» ahora apuntará al código elegido (antes → ${esc(ex.product_code)})`}
   else if(!isAdmin())note=ex.deleted_at?`Hay un alias oculto para «${esc(scanSt.raw)}». Un administrador puede restaurarlo o cambiarlo en Datos › Alias de códigos.`:`Ya hay un alias: «${esc(scanSt.raw)}» → ${esc(ex.product_code)}. Solo un administrador puede cambiarlo (Datos › Alias de códigos).`}
  $('sbRemBox').classList.toggle('hide',!show);$('sbRemNote').innerHTML=note;$('sbRemNote').classList.toggle('hide',!note)}
-function sbClose(){scanSt=null;$('scanBox').style.display='none';$('sbCands').innerHTML='';coolUntil=Date.now()+1200;bcLast=null;bcN=0}
+function sbClose(){scanSt=null;$('scanBox').style.display='none';$('sbCands').innerHTML='';coolUntil=Date.now()+1200;bcLast=null;bcN=0;layoutDock()}
 function sbFinish(code,fromCand){if(!scanSt)return;const{raw,src}=scanSt,rk=key(raw),fk=key(code);
  const t=sbTarget(),viaAlias=!fromCand&&t.how==='alias';
  if(fk&&fk!==rk&&!viaAlias){const inCat=idx.has(fk)||(isAmb()&&!!anyGet(fk)),rem=inCat&&!$('sbRemBox').classList.contains('hide')&&$('sbRem').checked;
@@ -827,7 +919,7 @@ $('sbCode').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('sbUse').clic
 $('sbUse').onclick=()=>{const t=sbTarget();if(!t.k)return;sbFinish(t.p?t.p.c:t.missing?t.a.product_code:t.v,false)};
 $('sbEdit').onclick=()=>{const i=$('sbCode');i.focus();i.select()};
 $('sbAgain').onclick=()=>{sbClose();$('chips').innerHTML='';$('ocrMsg').textContent='';
- if(mode==='bc')$('bcMsg').textContent='Listo, apunte al siguiente código.';const el=$(mode==='bc'?'bcCard':mode==='qr'?'qrCard':mode==='ocr'?'ocrCard':'scanBox');if(mode)el.scrollIntoView({behavior:'smooth',block:'start'})};
+ if(mode==='bc')$('bcMsg').textContent='Listo, apunte al siguiente código.';const el=$(mode==='bc'?'bcCard':mode==='qr'?'qrCard':mode==='ocr'?'ocrCard':'scanBox');if(dockOn()){if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();layoutDock()}else if(mode)el.scrollIntoView({behavior:'smooth',block:'start'})};
 $('sbCands').onclick=e=>{const c=e.target.closest('.chip');if(c)sbFinish(c.dataset.c,true)};
 
 /* ---- QR ---- */
@@ -892,7 +984,7 @@ function showOcr(r,auto){
  $('ocrMsg').textContent=r.res.length?'Toque el código correcto para contarlo:':(r.toks.length?'Sin coincidencia en el catálogo. Códigos leídos:':'No se detectó ningún código. Acerque la cámara, mejore la luz o intente de nuevo.')}
 $('chips').onclick=e=>{const c=e.target.closest('.chip');if(c)onScan(c.dataset.c,'ocr')};
 let stream=null,autoOn=true,busy=false,run=0,emptyReads=0;
-const guideCrop=()=>{const v=$('vid'),W=v.videoWidth,H=v.videoHeight;return[W*.1,H*.375,W*.8,H*.25].map(Math.round)};
+const guideCrop=()=>vbox($('vid'),.1,.375,.8,.25);
 async function ocrStart(){const id=++run;$('chips').innerHTML='';$('ocrMsg').textContent='';getWorker().catch(e=>{$('ocrMsg').textContent='OCR: '+e.message});
  try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('sin getUserMedia (use HTTPS)');
   const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
@@ -1151,7 +1243,7 @@ function renderCat(){if(!ws)return;const n=Object.keys(cnt).length;renderBranche
  $('memList').innerHTML='<b>Miembros</b>'+members.map(m=>`<div class="mem"><div class="d">${esc(m.display_name||'(sin nombre)')}${m.user_id===user.id?' <small>(usted)</small>':''}<br><small>${m.role==='admin'?'administrador':'miembro'}</small></div>${isAdmin()&&m.user_id!==user.id?`${m.role==='admin'?'':`<button class="sec" data-mkadmin="${esc(m.user_id)}">Hacer admin</button>`}<button class="red" data-rm="${esc(m.user_id)}">Quitar</button>`:''}</div>`).join('');
  const cur=$('expSes').value;$('expSes').innerHTML=sessions.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.status==='open'?' (actual)':' · cerrado '+fdate(s.closed_at)}</option>`).join('');if(cur&&sessions.some(s=>s.id===cur))$('expSes').value=cur;else if(sess)$('expSes').value=sess.id;
  let used=0;try{used=(sget(cacheKey())||'').length+(sget(pendKey())||'').length}catch(e){}
- renderAli();$('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 11.1 (sucursales)`;renderLay();renderImpBr()}
+ renderAli();$('stoInfo').textContent=(storageOK?'Almacenamiento local: OK':'⚠️ Almacenamiento local NO disponible')+` · ${Math.round(used/1024)} KB en caché · versión 11.2 (sucursales)`;renderLay();renderImpBr()}
 $('bCopy').onclick=async()=>{try{await navigator.clipboard.writeText(ws.invite_code);toast('Código copiado')}catch(e){toast('Código: '+ws.invite_code)}};
 $('bRot').onclick=async()=>{if(!confirm('El código anterior dejará de funcionar. ¿Generar uno nuevo?'))return;const{data,error}=await sb.rpc('rotate_invite_code',{p_ws:ws.id});if(error)return toast(friendly(error),true);ws.invite_code=data;renderCat()};
 $('bName').onclick=async()=>{const n=$('myName').value.trim();if(!n)return;const{error}=await sb.from('workspace_members').update({display_name:n.slice(0,60)}).eq('workspace_id',ws.id).eq('user_id',user.id);if(error)return toast(friendly(error),true);ws.display_name=n;toast('Nombre actualizado');loadMembers().catch(()=>{})};
@@ -1377,7 +1469,7 @@ async function boot(){
    if(ev==='SIGNED_OUT'&&user){resetSession();user=null;screen('scrAuth')}},0)});
  let session=null;try{const r=await sb.auth.getSession();session=r.data&&r.data.session}catch(e){}
  if(session)await enter();else if($('scrRecov').classList.contains('hide'))screen('scrAuth')}
-window.APP={get cat(){return cat},get cnt(){return cnt},get cur(){return cur},get pending(){return pending},get entries(){return entries},get ws(){return ws},get sess(){return sess},get net(){return net},get rtOK(){return rtOK},
+window.APP={vbox,layoutDock,dockOn,get camSz(){return camSz},get cat(){return cat},get cnt(){return cnt},get cur(){return cur},get pending(){return pending},get entries(){return entries},get ws(){return ws},get sess(){return sess},get net(){return net},get rtOK(){return rtOK},
  ocrMatches,tokens,key,search,select,ocrPipeline,exportData,flush,pollOnce,derive,difRows,get hist(){return hist},
  onScan,suggest,loadAliases,flushScanQ,get ali(){return aliFor()},isAmb,AMB_WS,get scanSt(){return scanSt},get mode(){return mode},setMode,get torch(){return torch},get bc(){return{last:bcLast,n:bcN,vert:bcVert,...bcStats}},bcPick,bcNeed,sqGet,get br(){return br},get branches(){return branches},setBranch,loadBranches,brMode};
 /* ============ PWA: instalación, sin conexión y actualizaciones ============ */

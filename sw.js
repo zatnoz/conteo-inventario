@@ -1,6 +1,6 @@
 /* Service worker — Conteo de Inventario
    SUBA VERSION en cada publicación: así los teléfonos detectan la versión nueva y muestran «Hay una versión nueva – Actualizar». */
-const VERSION = '11.1.0';
+const VERSION = '11.2.0';
 const SHELL = 'shell-' + VERSION;      // app + íconos + manifest (se reemplaza en cada versión)
 const LIBS  = 'libs-v1';               // librerías de CDN y datos del OCR (se conservan entre versiones)
 
